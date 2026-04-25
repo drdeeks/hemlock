@@ -1,0 +1,1 @@
+User: Dr Deeks. Casual communicator ("bro", "sick"). Wants fast iteration, things "just working." Focus: social/gaming features on FARCSTER SNAPS (not Mini Apps). Prefers quick decisions over over-engineering. "Update memory" means update the daily log (memory/YYYY-MM-DD.md), NOT long-term MEMORY.md — long-term is only for stable facts.

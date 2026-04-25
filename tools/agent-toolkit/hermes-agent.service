@@ -1,0 +1,46 @@
+[Unit]
+Description=Hermes Agent — OpenClaw Gateway + MCP Brain
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=drdeek
+Group=drdeek
+WorkingDirectory=/home/drdeek
+
+# Environment
+Environment=HERMES_HOME=/home/drdeek/.openclaw/agents/hermes
+Environment=OPENCLAW_ROOT=/home/drdeek/.openclaw
+Environment=PYTHONPATH=/home/drdeek/.hermes/hermes-agent
+Environment=HOME=/home/drdeek
+Environment=PATH=/home/drdeek/.openclaw/tools/node/bin:/home/drdeek/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=TZ=America/Chicago
+
+# Start command — openclaw gateway spawns MCP brain automatically
+ExecStart=/home/drdeek/.openclaw/tools/node/bin/node /home/drdeek/.openclaw/lib/node_modules/openclaw/dist/entry.js gateway run --allow-unconfigured
+
+# Restart policy: always restart, with increasing delay on repeated failures
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hermes-agent
+
+# Graceful shutdown
+TimeoutStopSec=30
+KillMode=mixed
+KillSignal=SIGTERM
+
+# Security hardening
+NoNewPrivileges=false
+ProtectSystem=strict
+ReadWritePaths=/home/drdeek/.openclaw /home/drdeek/.hermes /tmp /var/tmp
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

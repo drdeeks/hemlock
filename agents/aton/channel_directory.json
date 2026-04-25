@@ -1,0 +1,27 @@
+{
+  "updated_at": "2026-04-21T09:00:28.277325",
+  "platforms": {
+    "telegram": [
+      {
+        "id": "6537959619",
+        "name": "Dr Deeks",
+        "type": "dm",
+        "thread_id": null
+      }
+    ],
+    "discord": [],
+    "whatsapp": [],
+    "slack": [],
+    "signal": [],
+    "mattermost": [],
+    "matrix": [],
+    "homeassistant": [],
+    "email": [],
+    "sms": [],
+    "dingtalk": [],
+    "feishu": [],
+    "wecom": [],
+    "weixin": [],
+    "bluebubbles": []
+  }
+}

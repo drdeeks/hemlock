@@ -1,0 +1,4 @@
+model:
+  provider: nous
+  model: xiaomi/mimo-v2-pro
+  base_url: https://inference-api.nousresearch.com/v1

@@ -1,0 +1,14 @@
+[2026-04-25 18:03:22] [INFO] Added agent aton to docker-compose.yml
+Agent unit-test-agent-708848 started at Sat Apr 25 06:31:09 PM UTC 2026
+[2026-04-25 18:33:47] [INFO] Added agent thidden025 to docker-compose.yml
+[2026-04-25 18:34:24] [INFO] Added agent thidden061 to docker-compose.yml
+[2026-04-25 18:34:50] [INFO] Added agent thidden088 to docker-compose.yml
+[2026-04-25 18:34:50] [INFO] Agent thidden088 exported successfully to /tmp/test_hidden_export_088
+[2026-04-25 18:36:18] [INFO] Added agent thidden176 to docker-compose.yml
+[2026-04-25 18:36:18] [INFO] Agent thidden176 exported successfully to /tmp/test_hidden_export_176
+[2026-04-25 18:38:56] [INFO] Added agent thidden334 to docker-compose.yml
+[2026-04-25 18:38:56] [INFO] Agent thidden334 exported successfully to /tmp/test_hidden_export_334
+[2026-04-25 18:39:16] [INFO] Added agent thidden353 to docker-compose.yml
+[2026-04-25 18:39:16] [INFO] Agent thidden353 exported successfully to /tmp/test_hidden_export_353
+[2026-04-25 18:41:04] [INFO] Added agent thidden456 to docker-compose.yml
+[2026-04-25 18:41:04] [INFO] Agent thidden456 exported successfully to /tmp/test_hidden_export_456

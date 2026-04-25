@@ -1,0 +1,62 @@
+{
+  "mode": "paper",
+  "wallet": {
+    "type": "smart_wallet",
+    "provider": "base_account",
+    "chain_id": 8453,
+    "chain_name": "Base Mainnet",
+    "rpc_url": "https://mainnet.base.org",
+    "usdc_address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "paymaster_url": ""
+  },
+  "markets": {
+    "stocks": {
+      "enabled": true,
+      "data_source": "yfinance",
+      "tickers": []
+    },
+    "prediction_markets": {
+      "enabled": true,
+      "platforms": ["polymarket"],
+      "min_edge": 0.04,
+      "max_position_pct": 0.05,
+      "min_volume": 100000
+    },
+    "futures": {
+      "enabled": false,
+      "exchange": "hyperliquid",
+      "max_leverage": 3,
+      "pairs": ["ETH-USD", "BTC-USD"]
+    }
+  },
+  "risk": {
+    "max_daily_loss_pct": 0.10,
+    "max_position_pct": 0.15,
+    "kelly_fraction": 0.25,
+    "min_edge": 0.04,
+    "max_correlated_positions": 3,
+    "min_position": 5.0
+  },
+  "bankroll": 1000.0,
+  "alerts": {
+    "telegram_bot_token": "",
+    "telegram_chat_id": "",
+    "alert_on_new_opportunity": true,
+    "alert_on_trade": true,
+    "alert_on_close": true,
+    "daily_summary": true
+  },
+  "scanning": {
+    "interval_seconds": 300,
+    "max_daily_trades": 20,
+    "scan_hours": {
+      "start": 8,
+      "end": 23
+    }
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "trading.log",
+    "trade_log_dir": "memory/trades"
+  }
+}

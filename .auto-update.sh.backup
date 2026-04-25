@@ -1,0 +1,310 @@
+#!/bin/bash
+# =============================================================================
+# Self-Update Mechanism for Enterprise Framework
+# Automatically updates the framework to the latest version
+# =============================================================================
+
+set -uo pipefail
+
+# Find RUNTIME_ROOT by searching for runtime.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RUNTIME_ROOT="$SCRIPT_DIR"
+while [[ "$RUNTIME_ROOT" != "/" && ! -f "$RUNTIME_ROOT/runtime.sh" ]]; do
+    RUNTIME_ROOT="$(dirname "$RUNTIME_ROOT")"
+done
+if [[ ! -f "$RUNTIME_ROOT/runtime.sh" ]]; then
+    RUNTIME_ROOT="$SCRIPT_DIR"
+fi
+
+# Load common utilities if available
+if [[ -f "$RUNTIME_ROOT/lib/common.sh" ]]; then
+    source "$RUNTIME_ROOT/lib/common.sh"
+fi
+
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
+
+# Auto-update URL - points to the latest version of this script
+AUTO_UPDATE_URL="https://raw.githubusercontent.com/hemlock/core/main/.auto-update.sh"
+
+# Update interval in seconds (default: 24 hours = 86400)
+AUTO_UPDATE_INTERVAL="${AUTO_UPDATE_INTERVAL:-86400}"
+
+# Last update tracking file
+LAST_UPDATE_FILE="$RUNTIME_ROOT/.last-auto-update"
+
+# Update lock file to prevent concurrent updates
+UPDATE_LOCK="$RUNTIME_ROOT/.update-in-progress"
+
+# =============================================================================
+# UPDATE FUNCTIONS
+# =============================================================================
+
+# Check if an update is needed
+check_update_needed() {
+    log "Checking if update is needed..."
+    
+    # Check if last update file exists
+    if [[ ! -f "$LAST_UPDATE_FILE" ]]; then
+        log "No previous update recorded, update needed"
+        return 0
+    fi
+    
+    # Read last update timestamp
+    local last_update
+    last_update=$(cat "$LAST_UPDATE_FILE" 2>/dev/null || echo "0")
+    
+    # Get current timestamp
+    local now
+    now=$(date +%s)
+    
+    # Calculate elapsed time
+    local elapsed=$((now - last_update))
+    
+    log "Last update: $(date -d "@$last_update" 2>/dev/null || echo "unknown")"
+    log "Time elapsed: ${elapsed}s (interval: ${AUTO_UPDATE_INTERVAL}s)"
+    
+    # Check if interval has passed
+    if [[ $elapsed -ge $AUTO_UPDATE_INTERVAL ]]; then
+        log "Update interval passed, update needed"
+        return 0
+    else
+        log "Update not needed yet (${elapsed}s < ${AUTO_UPDATE_INTERVAL}s)"
+        return 1
+    fi
+}
+
+# Check if update is already in progress
+check_update_lock() {
+    if [[ -f "$UPDATE_LOCK" ]]; then
+        local lock_pid
+        lock_pid=$(cat "$UPDATE_LOCK" 2>/dev/null || echo "")
+        
+        # Check if the process is still running
+        if [[ -n "$lock_pid" && -d "/proc/$lock_pid" ]]; then
+            warn "Update already in progress (PID: $lock_pid)"
+            return 1
+        else
+            # Stale lock file, remove it
+            warn "Stale lock file found, removing..."
+            rm -f "$UPDATE_LOCK"
+        fi
+    fi
+    
+    # Create new lock file
+    echo $$ > "$UPDATE_LOCK"
+    return 0
+}
+
+# Release update lock
+release_update_lock() {
+    rm -f "$UPDATE_LOCK"
+}
+
+# Download the latest updater script
+download_updater() {
+    local temp_file="$RUNTIME_ROOT/.auto-update-temp.sh"
+    
+    log "Downloading latest updater from $AUTO_UPDATE_URL..."
+    
+    # Try curl first
+    if command -v curl &>/dev/null; then
+        if curl -sSf -o "$temp_file" "$AUTO_UPDATE_URL" 2>/dev/null; then
+            log "Successfully downloaded with curl"
+            return 0
+        fi
+    fi
+    
+    # Fallback to wget
+    if command -v wget &>/dev/null; then
+        if wget -q -O "$temp_file" "$AUTO_UPDATE_URL" 2>/dev/null; then
+            log "Successfully downloaded with wget"
+            return 0
+        fi
+    fi
+    
+    error "Failed to download updater (no curl or wget available)"
+    return 1
+}
+
+# Verify the downloaded updater
+verify_updater() {
+    local temp_file="$RUNTIME_ROOT/.auto-update-temp.sh"
+    
+    # Check if file exists
+    if [[ ! -f "$temp_file" ]]; then
+        error "Downloaded updater file not found"
+        return 1
+    fi
+    
+    # Check if file is not empty
+    if [[ ! -s "$temp_file" ]]; then
+        error "Downloaded updater file is empty"
+        return 1
+    fi
+    
+    # Check if file has proper shebang
+    local first_line
+    first_line=$(head -1 "$temp_file")
+    if [[ "$first_line" != "#!/bin/bash" ]]; then
+        error "Downloaded updater has invalid shebang: $first_line"
+        return 1
+    fi
+    
+    log "Updater verification passed"
+    return 0
+}
+
+# Run the updater
+run_updater() {
+    local temp_file="$RUNTIME_ROOT/.auto-update-temp.sh"
+    
+    log "Running updater script..."
+    
+    # Run with bash and pass RUNTIME_ROOT
+    if bash "$temp_file" --runtime-root="$RUNTIME_ROOT" 2>&1; then
+        log "Updater executed successfully"
+        return 0
+    else
+        error "Updater execution failed"
+        return 1
+    fi
+}
+
+# Record update time
+record_update() {
+    date +%s > "$LAST_UPDATE_FILE"
+    log "Update recorded at $(date)"
+}
+
+# Clean up temporary files
+cleanup() {
+    rm -f "$RUNTIME_ROOT/.auto-update-temp.sh"
+    release_update_lock
+}
+
+# =============================================================================
+# SELF-HEALING CAPABILITIES
+# =============================================================================
+
+# If update fails, attempt self-healing
+self_heal() {
+    warn "Update failed, attempting self-healing..."
+    
+    # Try to restore from backup if available
+    local backup_file="$RUNTIME_ROOT/.auto-update.sh.backup"
+    if [[ -f "$backup_file" ]]; then
+        log "Attempting to restore from backup..."
+        cp "$backup_file" "$SCRIPT_DIR/.auto-update.sh" 2>/dev/null
+        if [[ $? -eq 0 ]]; then
+            log "Successfully restored from backup"
+            return 0
+        fi
+    fi
+    
+    error "Self-healing failed, manual intervention may be required"
+    return 1
+}
+
+# =============================================================================
+# MAIN UPDATE PROCESS
+# =============================================================================
+
+auto_update() {
+    log "=========================================="
+    log "Auto-Update Process Started"
+    log "=========================================="
+    
+    # Check if update lock can be acquired
+    if ! check_update_lock; then
+        warn "Skipping update due to lock"
+        return 1
+    fi
+    
+    # Check if update is needed (automatic check mode)
+    if [[ "${1:-}" != "--force" ]]; then
+        if ! check_update_needed; then
+            log "No update needed at this time"
+            release_update_lock
+            return 0
+        fi
+    fi
+    
+    # Backup current script
+    if [[ -f "$SCRIPT_DIR/.auto-update.sh" ]]; then
+        cp "$SCRIPT_DIR/.auto-update.sh" "$RUNTIME_ROOT/.auto-update.sh.backup" 2>/dev/null
+    fi
+    
+    # Download the latest updater
+    if ! download_updater; then
+        warn "Failed to download updater"
+        cleanup
+        if ! self_heal; then
+            return 1
+        fi
+        return 1
+    fi
+    
+    # Verify the updater
+    if ! verify_updater; then
+        warn "Updater verification failed"
+        cleanup
+        return 1
+    fi
+    
+    # Run the updater
+    if ! run_updater; then
+        warn "Updater execution failed"
+        cleanup
+        if ! self_heal; then
+            return 1
+        fi
+        return 1
+    fi
+    
+    # Record successful update
+    record_update
+    cleanup
+    
+    log "=========================================="
+    log "Auto-Update Process Completed Successfully"
+    log "=========================================="
+    
+    return 0
+}
+
+# =============================================================================
+# MAIN EXECUTION
+# =============================================================================
+
+# Handle command-line arguments
+FORCE_UPDATE=false
+for arg in "$@"; do
+    case "$arg" in
+        --force)
+            FORCE_UPDATE=true
+            ;;
+        --runtime-root=*)
+            RUNTIME_ROOT="${arg#*=}"
+            ;;
+        *)
+            # Unknown argument
+            ;;
+    esac
+done
+
+# Check if auto-update is disabled
+if [[ "${AUTO_UPDATE:-true}" == "false" ]]; then
+    log "Auto-update is disabled"
+    exit 0
+fi
+
+# Run auto-update
+if $FORCE_UPDATE; then
+    auto_update --force
+else
+    auto_update
+fi
+
+exit $?

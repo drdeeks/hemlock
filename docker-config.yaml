@@ -1,0 +1,249 @@
+# =============================================================================
+# OpenClaw Enterprise Framework - Docker Configuration
+# 
+# Comprehensive configuration for Docker image builds and deployments
+# This file defines all image variants, build args, and deployment profiles
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Image Repository Configuration
+# -----------------------------------------------------------------------------
+repository:
+  # Base registry
+  base: "docker.io/openclaw"
+  
+  # Image tag strategy
+  tag_strategy: "semver"  # Options: semver, git-sha, timestamp, latest
+  
+  # Version for current build
+  version: "1.0.0"
+  
+  # Image names
+  images:
+    framework: "enterprise-framework"
+    gateway: "gateway"
+    agent: "agent"
+    
+# -----------------------------------------------------------------------------
+# Build Configuration
+# -----------------------------------------------------------------------------
+build:
+  # Framework image
+  framework:
+    dockerfile: "Dockerfile"
+    context: "."
+    target: "framework"
+    args:
+      FRAMEWORK_VERSION: "${FRAMEWORK_VERSION:-1.0.0}"
+      FRAMEWORK_NAME: "openclaw-enterprise"
+    tags:
+      - "${repository.base}/${repository.images.framework}:${repository.version}"
+      - "${repository.base}/${repository.images.framework}:latest"
+    
+  # Agent image
+  agent:
+    dockerfile: "Dockerfile.agent"
+    context: "."
+    args:
+      AGENT_ID: "custom-agent"
+      MODEL: "${DEFAULT_AGENT_MODEL:-nous/mistral-large}"
+      OPENCLAW_GATEWAY_TOKEN: "${OPENCLAW_GATEWAY_TOKEN}"
+    tags:
+      - "${repository.base}/${repository.images.agent}:${repository.version}"
+      - "${repository.base}/${repository.images.agent}:latest"
+    
+  # Gateway image (uses pre-built)
+  gateway:
+    image: "${repository.base}/${repository.images.gateway}:latest"
+    pull: true
+
+# -----------------------------------------------------------------------------
+# Agent Configurations for Import/Export
+# -----------------------------------------------------------------------------
+agents:
+  # E2E Test Agent
+  test-e2e-agent:
+    build:
+      dockerfile: "Dockerfile.agent"
+      args:
+        AGENT_ID: "test-e2e-agent"
+        MODEL: "nous/mistral-large"
+    config: "agents/test-e2e-agent/config.yaml"
+    volumes:
+      - "agent_test_e2e_data:/app/data"
+      - "agent_test_e2e_config:/app/config"
+    environment:
+      TEST_MODE: "true"
+      CREW_CHANNEL: ""
+    
+  # Crew Agent 1
+  crew-agent-1:
+    build:
+      dockerfile: "Dockerfile.agent"
+      args:
+        AGENT_ID: "crew-agent-1"
+        MODEL: "nous/mistral-large"
+    config: "agents/crew-agent-1/config.yaml"
+    volumes:
+      - "agent_crew_1_data:/app/data"
+      - "agent_crew_1_config:/app/config"
+    environment:
+      CREW_CHANNEL: "crew-1"
+      TEST_MODE: "false"
+
+# -----------------------------------------------------------------------------
+# Docker Compose Profiles
+# -----------------------------------------------------------------------------
+profiles:
+  # Development profile - All services with hot-reload
+  dev:
+    services:
+      - openclaw-gateway
+      - test-e2e-agent
+      - crew-agent-1
+    build: true
+    volumes: true
+    
+  # Production profile - Minimal, optimized
+  prod:
+    services:
+      - openclaw-gateway
+      - test-e2e-agent
+      - crew-agent-1
+    build: false
+    pull: true
+    read_only: true
+    cap_drop: true
+    
+  # Framework-only profile
+  framework-only:
+    services:
+      - framework
+    build: true
+    
+  # Gateway-only profile
+  gateway-only:
+    services:
+      - openclaw-gateway
+    
+  # Agent-only profile (for testing individual agents)
+  agent-test:
+    services:
+      - openclaw-gateway
+      - test-e2e-agent
+
+# -----------------------------------------------------------------------------
+# Security Configuration
+# -----------------------------------------------------------------------------
+security:
+  # Linux capabilities to drop
+  cap_drop:
+    - ALL
+  
+  # Read-only filesystem
+  read_only: true
+  
+  # Temporary filesystem
+  tmpfs:
+    size: "64m"
+    paths:
+      - /tmp
+  
+  # ICC (Inter-Container Communication)
+  icc: false
+  
+  # User privileges
+  run_as_non_root: true
+  user: "1000:1000"
+
+# -----------------------------------------------------------------------------
+# Network Configuration
+# -----------------------------------------------------------------------------
+network:
+  name: "agents_net"
+  driver: "bridge"
+  driver_opts:
+    com.docker.network.bridge.enable_icc: "false"
+  internal: false
+
+# -----------------------------------------------------------------------------
+# Volume Configuration
+# -----------------------------------------------------------------------------
+volumes:
+  openclaw_config:
+    driver: "local"
+  openclaw_workspace:
+    driver: "local"
+  agent_data:
+    driver: "local"
+  agent_config:
+    driver: "local"
+
+# -----------------------------------------------------------------------------
+# Environment Variables
+# -----------------------------------------------------------------------------
+environment:
+  # Gateway
+  OPENCLAW_GATEWAY_TOKEN: "${OPENCLAW_GATEWAY_TOKEN:-change_this_to_a_secure_token}"
+  OPENCLAW_GATEWAY_BIND: "lan"
+  OPENCLAW_GATEWAY_PORT: 18789
+  OPENCLAW_GATEWAY_URL: "ws://openclaw-gateway:18789"
+  
+  # Default Agent
+  DEFAULT_AGENT_MODEL: "${DEFAULT_AGENT_MODEL:-nous/mistral-large}"
+  DEFAULT_AGENT_NETWORK: "agents_net"
+  
+  # Framework
+  FRAMEWORK_VERSION: "${FRAMEWORK_VERSION:-1.0.0}"
+  FRAMEWORK_NAME: "openclaw-enterprise"
+  RUNTIME_ROOT: "/app"
+
+# -----------------------------------------------------------------------------
+# Health Check Configuration
+# -----------------------------------------------------------------------------
+healthcheck:
+  gateway:
+    test: ["CMD", "curl", "-fsS", "http://localhost:18789/healthz"]
+    interval: "30s"
+    timeout: "10s"
+    retries: 3
+    start_period: "10s"
+  
+  agent:
+    test: ["CMD", "pgrep", "-x", "hermes"]
+    interval: "30s"
+    timeout: "10s"
+    retries: 3
+    start_period: "10s"
+  
+  framework:
+    test: ["CMD", "sh", "-c", "curl -fsS http://localhost:18789/healthz || pgrep -x hermes"]
+    interval: "30s"
+    timeout: "10s"
+    retries: 3
+    start_period: "15s"
+
+# -----------------------------------------------------------------------------
+# Resource Limits
+# -----------------------------------------------------------------------------
+resources:
+  gateway:
+    memory: "512m"
+    cpus: "1"
+  
+  agent:
+    memory: "512m"
+    cpus: "1"
+  
+  framework:
+    memory: "2g"
+    cpus: "2"
+
+# -----------------------------------------------------------------------------
+# Logging Configuration
+# -----------------------------------------------------------------------------
+logging:
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"

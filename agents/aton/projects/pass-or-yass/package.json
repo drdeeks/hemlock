@@ -1,0 +1,23 @@
+{
+  "name": "pass-or-yass",
+  "version": "4.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@farcaster/snap": "^2.0.0",
+    "@farcaster/snap-hono": "^2.0.0",
+    "@farcaster/snap-turso": "^2.0.0",
+    "@noble/curves": "^2.0.0",
+    "hono": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}
