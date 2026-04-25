@@ -1,8 +1,0 @@
-packages:
-  - "pkgs/*"
-  - "apps/*"
-  - "examples/*"
-  - "template"
-minimumReleaseAge: 1440
-minimumReleaseAgeExclude:
-  - "@farcaster/*"

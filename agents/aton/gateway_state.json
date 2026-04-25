@@ -1,1 +1,0 @@
-{"pid": 42, "kind": "hermes-gateway", "argv": ["/app/hermes-agent/hermes_cli/main.py", "gateway", "run"], "start_time": 28889810, "gateway_state": "draining", "exit_reason": null, "restart_requested": false, "active_agents": 0, "platforms": {"telegram": {"state": "connected", "updated_at": "2026-04-21T04:01:12.183850+00:00"}}, "updated_at": "2026-04-21T14:01:03.182854+00:00"}

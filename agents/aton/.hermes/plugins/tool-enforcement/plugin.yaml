@@ -1,5 +1,0 @@
-name: tool-enforcement
-version: 1.0.0
-description: Injects tool usage guidance before LLM calls to prevent terminal misuse
-provides_hooks:
-  - pre_llm_call
