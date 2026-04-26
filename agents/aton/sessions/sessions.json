@@ -1,0 +1,30 @@
+{
+  "agent:main:telegram:dm:6537959619": {
+    "session_key": "agent:main:telegram:dm:6537959619",
+    "session_id": "20260421_084655_dc5ac0f6",
+    "created_at": "2026-04-21T08:46:55.802918",
+    "updated_at": "2026-04-21T08:46:55.802918",
+    "display_name": "Dr Deeks",
+    "platform": "telegram",
+    "chat_type": "dm",
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "total_tokens": 0,
+    "last_prompt_tokens": 0,
+    "estimated_cost_usd": 0.0,
+    "cost_status": "unknown",
+    "memory_flushed": false,
+    "origin": {
+      "platform": "telegram",
+      "chat_id": "6537959619",
+      "chat_name": "Dr Deeks",
+      "chat_type": "dm",
+      "user_id": "6537959619",
+      "user_name": "Dr Deeks",
+      "thread_id": null,
+      "chat_topic": null
+    }
+  }
+}

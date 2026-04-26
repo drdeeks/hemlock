@@ -13,3 +13,7 @@ Agent unit-test-agent-708848 started at Sat Apr 25 06:31:09 PM UTC 2026
 [2026-04-25 18:41:04] [INFO] Agent thidden456 exported successfully to /tmp/test_hidden_export_456
 [2026-04-25 21:36:32] [INFO] Added agent thidden990 to docker-compose.yml
 [2026-04-25 21:36:32] [INFO] Agent thidden990 exported successfully to /tmp/test_hidden_export_990
+[2026-04-26 05:11:05] [INFO] Added agent thidden264 to docker-compose.yml
+[2026-04-26 05:11:05] [INFO] Agent thidden264 exported successfully to /tmp/test_hidden_export_264
+[2026-04-26 05:23:33] [INFO] Added agent thidden011 to docker-compose.yml
+[2026-04-26 05:23:33] [INFO] Agent thidden011 exported successfully to /tmp/test_hidden_export_011
