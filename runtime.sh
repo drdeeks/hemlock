@@ -130,6 +130,7 @@ ${BLUE}Options:${NC}
   --verbose, -v        Verbose output
   --dry-run            Test without making changes
   --force, -f         Force operations
+  --skip-init          Skip first-run initialization
 
 ${BLUE}Examples:${NC}
   $0 setup
@@ -1002,6 +1003,7 @@ VERBOSE=false
 QUIET=false
 DRY_RUN=false
 FORCE=false
+SKIP_INIT=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -1022,6 +1024,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --force|-f)
             FORCE=true
+            shift
+            ;;
+        --skip-init)
+            SKIP_INIT=true
             shift
             ;;
         create-agents)
@@ -1166,10 +1172,18 @@ case "$COMMAND" in
         usage
         ;;
     create-agents|create-agents-from-plugin)
-        create_agents_from_plugin
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping agent creation"
+        else
+            create_agents_from_plugin
+        fi
         ;;
     finalize-agents|finalize-agents-from-plugin)
-        finalize_agents_from_plugin
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping agent finalization"
+        else
+            finalize_agents_from_plugin
+        fi
         ;;
     list-agents)
         list_agents
@@ -1179,22 +1193,42 @@ case "$COMMAND" in
         delete_agent "$@"
         ;;
     create-crew)
-        create_crew "$@"
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping crew creation"
+        else
+            create_crew "$@"
+        fi
         ;;
     activate-crew)
-        activate_crew "$@"
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping crew activation"
+        else
+            activate_crew "$@"
+        fi
         ;;
     deactivate-crew)
-        deactivate_crew "$@"
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping crew deactivation"
+        else
+            deactivate_crew "$@"
+        fi
         ;;
     list-crews)
         list_crews
         ;;
     backup)
-        backup_command "$@"
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping backup"
+        else
+            backup_command "$@"
+        fi
         ;;
     backup-init)
-        backup_command init
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping backup initialization"
+        else
+            backup_command init
+        fi
         ;;
     backup-status)
         backup_command status
@@ -1206,27 +1240,55 @@ case "$COMMAND" in
         validate_modules
         ;;
     restore)
-        backup_command restore "$@"
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping restore"
+        else
+            backup_command restore "$@"
+        fi
         ;;
     inject-memory)
-        inject_memory_single "$@"
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping memory injection"
+        else
+            inject_memory_single "$@"
+        fi
         ;;
     inject-all-memory)
-        inject_all_memory "$@"
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping all memory injection"
+        else
+            inject_all_memory "$@"
+        fi
         ;;
     setup)
         # Legacy setup - now redirects to initialize for full setup
         if $(is_first_run); then
-            run_first_run_initialization
+            if [[ "$SKIP_INIT" == true ]]; then
+                log "Skipping initialization"
+            else
+                run_first_run_initialization
+            fi
         else
-            setup_system
+            if [[ "$SKIP_INIT" == true ]]; then
+                log "Skipping system setup"
+            else
+                setup_system
+            fi
         fi
         ;;
     initialize)
-        run_first_run_initialization
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping initialization"
+        else
+            run_first_run_initialization
+        fi
         ;;
     update)
-        update_system
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping system update"
+        else
+            update_system
+        fi
         ;;
     system-status|status)
         system_status
@@ -1238,10 +1300,18 @@ case "$COMMAND" in
         list_plugins
         ;;
     enable-plugin)
-        enable_plugin "$@"
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping plugin enable"
+        else
+            enable_plugin "$@"
+        fi
         ;;
     disable-plugin)
-        disable_plugin "$@"
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping plugin disable"
+        else
+            disable_plugin "$@"
+        fi
         ;;
     *)
         error "Unknown command: $COMMAND"

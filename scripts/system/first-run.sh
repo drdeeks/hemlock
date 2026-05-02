@@ -796,6 +796,8 @@ ${BLUE}Options:${NC}
   --skip-scan   Skip hardware scanning
   --skip-build  Skip Llama.cpp build
   --skip-model  Skip model download
+  --dry-run     Preview actions without executing
+  --skip-init   Skip initialization (first-run flag)
   --help, -h    Show this help
 
 ${BLUE}Status:${NC}
@@ -820,6 +822,8 @@ main() {
     local skip_scan=false
     local skip_build=false
     local skip_model=false
+    local dry_run=false
+    local skip_init=false
     
     shift
     
@@ -840,6 +844,14 @@ main() {
                 ;;
             --skip-model)
                 skip_model=true
+                shift
+                ;;
+            --dry-run)
+                dry_run=true
+                shift
+                ;;
+            --skip-init)
+                skip_init=true
                 shift
                 ;;
             --help|-h)
@@ -875,25 +887,67 @@ main() {
     
     case "$command" in
         "full")
-            full_initialization
+            if [[ "$dry_run" == true ]]; then
+                log "DRY RUN: Would perform full initialization"
+            elif [[ "$skip_init" == true ]]; then
+                log "Skipping full initialization"
+            else
+                full_initialization
+            fi
             ;;
         "quick")
-            quick_setup
+            if [[ "$dry_run" == true ]]; then
+                log "DRY RUN: Would perform quick setup"
+            elif [[ "$skip_init" == true ]]; then
+                log "Skipping quick setup"
+            else
+                quick_setup
+            fi
             ;;
         "scan")
-            phase_system_scan
+            if [[ "$dry_run" == true ]]; then
+                log "DRY RUN: Would run hardware scan"
+            elif [[ "$skip_init" == true ]]; then
+                log "Skipping hardware scan"
+            else
+                phase_system_scan
+            fi
             ;;
         "build")
-            phase_llama_build
+            if [[ "$dry_run" == true ]]; then
+                log "DRY RUN: Would build Llama.cpp"
+            elif [[ "$skip_init" == true ]]; then
+                log "Skipping Llama.cpp build"
+            else
+                phase_llama_build
+            fi
             ;;
         "model")
-            phase_model_setup
+            if [[ "$dry_run" == true ]]; then
+                log "DRY RUN: Would setup model"
+            elif [[ "$skip_init" == true ]]; then
+                log "Skipping model setup"
+            else
+                phase_model_setup
+            fi
             ;;
         "config")
-            phase_configuration
+            if [[ "$dry_run" == true ]]; then
+                log "DRY RUN: Would configure system"
+            elif [[ "$skip_init" == true ]]; then
+                log "Skipping configuration"
+            else
+                phase_configuration
+            fi
             ;;
         "helper")
-            create_helper_agent
+            if [[ "$dry_run" == true ]]; then
+                log "DRY RUN: Would create helper agent"
+            elif [[ "$skip_init" == true ]]; then
+                log "Skipping helper agent creation"
+            else
+                create_helper_agent
+            fi
             ;;
         "status")
             echo "First run: $(is_first_run && echo "YES" || echo "NO")"

@@ -579,6 +579,7 @@ ${BLUE}Options:${NC}
   --quant <q>        Quantization type (default: $DEFAULT_QUANT)
                      Available: Q4_0, Q4_K_M, Q5_0, Q5_K_M, Q8_0, F16, F32
   --model <m>        Model name (default: qwen3-0.6b)
+  --dry-run          Preview actions without executing
   --help, -h         Show this help
 
 ${BLUE}Examples:${NC}
@@ -600,6 +601,7 @@ main() {
     local command="${1:-}"
     local quant="$DEFAULT_QUANT"
     local model="qwen3-0.6b"
+    local dry_run=false
     
     shift
     
@@ -614,6 +616,10 @@ main() {
                 model="$2"
                 shift 2
                 ;;
+            --dry-run)
+                dry_run=true
+                shift
+                ;;
             --help|-h)
                 usage
                 exit 0
@@ -626,32 +632,60 @@ main() {
     
     case "$command" in
         "setup")
-            setup_default_model "$quant" "$model"
+            if [[ "$dry_run" == true ]]; then
+                log "DRY RUN: Would setup default model with quant=$quant and model=$model"
+            else
+                setup_default_model "$quant" "$model"
+            fi
             ;;
         "download")
-            download_model "$model" "$HF_DIR"
+            if [[ "$dry_run" == true ]]; then
+                log "DRY RUN: Would download model $model to $HF_DIR"
+            else
+                download_model "$model" "$HF_DIR"
+            fi
             ;;
         "convert")
-            convert_to_gguf "$model" "$quant"
+            if [[ "$dry_run" == true ]]; then
+                log "DRY RUN: Would convert model $model to GGUF with quant=$quant"
+            else
+                convert_to_gguf "$model" "$quant"
+            fi
             ;;
         "full-setup")
-            # For Qwen3:0.6B specifically
-            setup_default_model "$quant" "qwen3-0.6b"
+            if [[ "$dry_run" == true ]]; then
+                log "DRY RUN: Would perform full setup for Qwen3:0.6B with quant=$quant"
+            else
+                # For Qwen3:0.6B specifically
+                setup_default_model "$quant" "qwen3-0.6b"
+            fi
             ;;
         "list")
-            list_models
+            if [[ "$dry_run" == true ]]; then
+                log "DRY RUN: Would list available models"
+            else
+                list_models
+            fi
             ;;
         "verify")
-            # Use first positional arg as model path
-            if [[ "${1:-}" != "" ]]; then
-                verify_model "$1"
+            if [[ "$dry_run" == true ]]; then
+                log "DRY RUN: Would verify model at path $1"
             else
-                usage
-                exit 1
+                # Use first positional arg as model path
+                if [[ "${1:-}" != "" ]]; then
+                    verify_model "$1"
+                else
+                    usage
+                    exit 1
+                fi
             fi
             ;;
         "clean")
-            clean_models
+            if [[ "$dry_run" == true ]]; then
+                log "DRY RUN: Would clean all model files"
+            else
+                clean_models
+            fi
             ;;
         "")
             usage

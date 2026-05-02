@@ -79,6 +79,7 @@ ${BLUE}Options:${NC}
   --model <m>       Model name (default: qwen3-0.6b)
   --backend <b>     Force backend: cpu, cuda, metal, rocm, vulkan
   --force           Force re-setup
+  --dry-run         Preview actions without executing
   --help, -h        Show this help
 
 ${BLUE}Examples:${NC}
@@ -109,6 +110,7 @@ main() {
     local model="qwen3-0.6b"
     local backend=""
     local force=false
+    local dry_run=false
     
     shift
     
@@ -131,6 +133,10 @@ main() {
                 force=true
                 shift
                 ;;
+            --dry-run)
+                dry_run=true
+                shift
+                ;;
             --help|-h)
                 usage
                 exit 0
@@ -143,76 +149,104 @@ main() {
     
     case "$command" in
         "full")
-            info "${PURPLE}===========================================================================${NC}"
-            info "${PURPLE}       Hemlock Qwen3:0.6B + Llama.cpp Complete Setup                      ${NC}"
-            info "${PURPLE}===========================================================================${NC}"
-            echo ""
-            
-            # Run first-run initialization
-            if [[ -f "$FIRST_RUN" ]]; then
-                log "Running first-run initialization..."
-                bash "$FIRST_RUN" full --quant "$quant" --model "$model" || {
-                    error "First-run initialization failed"
-                    exit 1
-                }
+            if [[ "$dry_run" == true ]]; then
+                info "${PURPLE}===========================================================================${NC}"
+                info "${PURPLE}       DRY RUN: Would perform Hemlock Qwen3:0.6B + Llama.cpp Complete Setup${NC}"
+                info "${PURPLE}===========================================================================${NC}"
+                echo ""
+                log "DRY RUN: Would run first-run initialization with quant=$quant and model=$model"
             else
-                error "First-run script not found at $FIRST_RUN"
-                exit 1
+                info "${PURPLE}===========================================================================${NC}"
+                info "${PURPLE}       Hemlock Qwen3:0.6B + Llama.cpp Complete Setup                      ${NC}"
+                info "${PURPLE}===========================================================================${NC}"
+                echo ""
+                
+                # Run first-run initialization
+                if [[ -f "$FIRST_RUN" ]]; then
+                    log "Running first-run initialization..."
+                    bash "$FIRST_RUN" full --quant "$quant" --model "$model" || {
+                        error "First-run initialization failed"
+                        exit 1
+                    }
+                else
+                    error "First-run script not found at $FIRST_RUN"
+                    exit 1
+                fi
+                
+                success "Setup completed successfully!"
+                echo ""
+                info "Next steps:"
+                info "  1. Run ./runtime.sh list-agents to see your agents"
+                info "  2. Run ./runtime.sh status to check system health"
+                info "  3. Interact with the helper agent for guidance"
             fi
-            
-            success "Setup completed successfully!"
-            echo ""
-            info "Next steps:"
-            info "  1. Run ./runtime.sh list-agents to see your agents"
-            info "  2. Run ./runtime.sh status to check system health"
-            info "  3. Interact with the helper agent for guidance"
             ;;
         "scan")
-            log "Running hardware scan..."
-            if [[ -f "$HARDWARE_SCANNER" ]]; then
-                bash "$HARDWARE_SCANNER"
+            if [[ "$dry_run" == true ]]; then
+                log "DRY RUN: Would run hardware scan"
             else
-                error "Hardware scanner not found"
-                exit 1
+                log "Running hardware scan..."
+                if [[ -f "$HARDWARE_SCANNER" ]]; then
+                    bash "$HARDWARE_SCANNER"
+                else
+                    error "Hardware scanner not found"
+                    exit 1
+                fi
             fi
             ;;
         "build")
-            log "Building Llama.cpp..."
-            if [[ -f "$LLAMA_BUILDER" ]]; then
-                if [[ "$backend" != "" ]]; then
-                    bash "$LLAMA_BUILDER" "build-$backend"
-                else
-                    bash "$LLAMA_BUILDER" build
-                fi
+            if [[ "$dry_run" == true ]]; then
+                log "DRY RUN: Would build Llama.cpp with backend=$backend"
             else
-                error "Llama builder not found"
-                exit 1
+                log "Building Llama.cpp..."
+                if [[ -f "$LLAMA_BUILDER" ]]; then
+                    if [[ "$backend" != "" ]]; then
+                        bash "$LLAMA_BUILDER" "build-$backend"
+                    else
+                        bash "$LLAMA_BUILDER" build
+                    fi
+                else
+                    error "Llama builder not found"
+                    exit 1
+                fi
             fi
             ;;
         "model")
-            log "Downloading and converting model..."
-            if [[ -f "$MODEL_MANAGER" ]]; then
-                bash "$MODEL_MANAGER" setup --quant "$quant" --model "$model"
+            if [[ "$dry_run" == true ]]; then
+                log "DRY RUN: Would download and convert model $model with quant=$quant"
             else
-                error "Model manager not found"
-                exit 1
+                log "Downloading and converting model..."
+                if [[ -f "$MODEL_MANAGER" ]]; then
+                    bash "$MODEL_MANAGER" setup --quant "$quant" --model "$model"
+                else
+                    error "Model manager not found"
+                    exit 1
+                fi
             fi
             ;;
         "setup")
-            log "Running first-run initialization..."
-            if [[ -f "$FIRST_RUN" ]]; then
-                bash "$FIRST_RUN" full --quant "$quant" --model "$model"
+            if [[ "$dry_run" == true ]]; then
+                log "DRY RUN: Would run first-run initialization with quant=$quant and model=$model"
             else
-                error "First-run script not found"
-                exit 1
+                log "Running first-run initialization..."
+                if [[ -f "$FIRST_RUN" ]]; then
+                    bash "$FIRST_RUN" full --quant "$quant" --model "$model"
+                else
+                    error "First-run script not found"
+                    exit 1
+                fi
             fi
             ;;
         "clean")
-            log "Cleaning setup files..."
-            rm -rf "$RUNTIME_ROOT/.cache/llama.cpp" 2>/dev/null || true
-            rm -rf "$RUNTIME_ROOT/models" 2>/dev/null || true
-            rm -f "$RUNTIME_ROOT/.cache/.first_run_completed" 2>/dev/null || true
-            success "Setup files cleaned"
+            if [[ "$dry_run" == true ]]; then
+                log "DRY RUN: Would clean setup files"
+            else
+                log "Cleaning setup files..."
+                rm -rf "$RUNTIME_ROOT/.cache/llama.cpp" 2>/dev/null || true
+                rm -rf "$RUNTIME_ROOT/models" 2>/dev/null || true
+                rm -f "$RUNTIME_ROOT/.cache/.first_run_completed" 2>/dev/null || true
+                success "Setup files cleaned"
+            fi
             ;;
         *)
             error "Unknown command: $command"

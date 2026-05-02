@@ -1,259 +1,5 @@
 #!/bin/bash
-# Install required build dependencies
 # =============================================================================
-install_dependencies() {
-    if [[ "$DRY_RUN" == true ]]; then
-        dry_run_log "Would install build dependencies"
-        return 0
-    fi
-    
-    log "Installing build dependencies..."
-    
-    local os_name=""
-    local os_version=""
-    
-    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        os_name="linux"
-        os_version=$(grep -oP 'VERSION_ID=\\n=======
-# =============================================================================
-# Install required build dependencies
-# =============================================================================
-install_dependencies() {
-    if [[ "$DRY_RUN" == true ]]; then
-        dry_run_log "Would install build dependencies"
-        return 0
-    fi
-    
-    log "Installing build dependencies..."
-    
-    local os_name=""
-    local os_version=""
-    
-    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        os_name="linux"
-        os_version=$(grep -oP 'VERSION_ID=\K[^\\"]+' /etc/os-release 2>/dev/null || echo "unknown")
-        
-        log "Detected Linux distribution: $os_version"
-        
-        if [[ "$os_version" == *"ubuntu"* || "$os_version" == *"debian"* || "$os_version" == *"pop"* ]]; then
-            log "Installing dependencies for Debian/Ubuntu-based system..."
-            dry_run_wrapper "sudo apt-get update && sudo apt-get install -y git make cmake gcc g++ python3 python3-pip wget curl jq" \
-                "Install build essentials"
-        elif [[ "$os_version" == *"fedora"* || "$os_version" == *"rhel"* || "$os_version" == *"centos"* ]]; then
-            log "Installing dependencies for Fedora/RHEL-based system..."
-            dry_run_wrapper "sudo dnf install -y git make cmake gcc gcc-c++ python3 python3-pip wget curl jq" \
-                "Install build essentials"
-        elif [[ "$os_version" == *"arch"* ]]; then
-            log "Installing dependencies for Arch-based system..."
-            dry_run_wrapper "sudo pacman -Syu --noconfirm git make cmake gcc python python-pip wget curl jq" \
-                "Install build essentials"
-        else
-            log "Unknown Linux distribution, attempting generic install..."
-            dry_run_wrapper "sudo apt-get update && sudo apt-get install -y git make cmake gcc g++ python3 python3-pip wget curl jq 2>/dev/null || \
-                           sudo dnf install -y git make cmake gcc gcc-c++ python3 python3-pip wget curl jq 2>/dev/null || \
-                           sudo pacman -Syu --noconfirm git make cmake gcc python python-pip wget curl jq 2>/dev/null" \
-                "Install build essentials (generic)"
-        fi
-        
-    elif [[ "$OSTYPE" == "darwin"* ]]; then
-        os_name="macos"
-        os_version=$(sw_vers -productVersion 2>/dev/null || echo "unknown")
-        
-        log "Detected macOS: $os_version"
-        
-        if ! command -v brew &>/dev/null; then
-            warn "Homebrew not found, installing Homebrew first..."
-            dry_run_wrapper "/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"" \
-                "Install Homebrew"
-        fi
-        
-        dry_run_wrapper "brew install git make cmake pkg-config jq wget curl" \
-            "Install build essentials via Homebrew"
-        
-    else
-        error "Unsupported OS: $OSTYPE"
-        return 1
-    fi
-    
-    success "Build dependencies installed"
-}
-
-# =============================================================================
-# Parse Command Line Options
-# =============================================================================
-parse_options() {
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            --backend)
-                FORCE_BACKEND="$2"
-                shift 2
-                ;;
-            --dry-run)
-                DRY_RUN=true
-                shift
-                ;;
-            --verbose|-v)
-                VERBOSE=true
-                shift
-                ;;
-            --clean)
-                CLEAN_BUILD=true
-                shift
-                ;;
-            --branch)
-                DEFAULT_BRANCH="$2"
-                shift 2
-                ;;
-            --threads)
-                BUILD_THREADS="$2"
-                shift 2
-                ;;
-            --help|-h)
-                usage
-                exit 0
-                ;;
-            *)
-                shift
-                ;;
-        esac
-    done
-}
-
-# =============================================================================
-# USAGE
-# =============================================================================
-usage() {
-    cat <<EOF
-${CYAN}Hemlock Llama.cpp Builder${NC}
-
-Builds Llama.cpp with optimal configuration based on system hardware.
-Supports: CPU, CUDA, ROCm, Metal, Vulkan backends
-
-${BLUE}Usage:${NC}
-  $0 [OPTIONS] <COMMAND>
-
-${BLUE}Options:${NC}
-  --backend <type>    Specify backend: auto, metal, cuda, rocm, vulkan, cpu (default: auto)
-  --dry-run           Preview actions without executing
-  --verbose, -v       Enable verbose output
-  --help, -h          Show this help
-  --clean             Clean build files before building
-  --branch <name>     Use specific llama.cpp branch (default: master)
-  --threads <n>       Number of build threads (default: auto)
-
-${BLUE}Commands:${NC}
-  build              Build Llama.cpp (default)
-  auto               Auto-detect and build (same as build)
-  build-cpu          Force CPU-only build
-  build-cuda         Force CUDA build
-  build-metal        Force Metal build
-  build-rocm         Force ROCm build
-  build-vulkan       Force Vulkan build
-  scan               Run hardware scan only
-  verify             Verify installation
-  clean              Clean build files
-  install-deps       Install required dependencies
-
-${BLUE}Examples:${NC}
-  $0                                     # Auto-detect and build
-  $0 --backend auto --verbose           # Auto with verbose
-  $0 --backend cuda                      # Force CUDA build
-  $0 --backend metal --dry-run          # Preview Metal build
-  $0 build-cpu                           # Force CPU build
-  $0 install-deps                        # Install dependencies only
-  $0 clean                               # Clean build files
-
-EOF
-}
-
-# =============================================================================
-# Main
-# =============================================================================
-main() {
-    local command="${1:-}"
-    shift
-    
-    # Parse options
-    parse_options "$@"
-    
-    # Set first positional argument back after options are consumed
-    # This allows commands like: ./llama-build.sh --backend cuda build
-    
-    # Show help if no command given
-    if [[ "$command" == "" && $# -eq 0 ]]; then
-        if [[ "$FORCE_BACKEND" != "" || "$DRY_RUN" == true || "$VERBOSE" == true ]]; then
-            # If flags provided, assume build command
-            command="build"
-        else
-            usage
-            exit 0
-        fi
-    fi
-    
-    # Handle commands
-    case "$command" in
-        build|auto|"")
-            if [[ "$CLEAN_BUILD" == true ]]; then
-                clean_build
-            fi
-            auto_build
-            ;;
-        build-cpu)
-            if [[ "$CLEAN_BUILD" == true ]]; then
-                clean_build
-            fi
-            build_cpu
-            ;;
-        build-cuda)
-            if [[ "$CLEAN_BUILD" == true ]]; then
-                clean_build
-            fi
-            build_cuda
-            ;;
-        build-metal)
-            if [[ "$CLEAN_BUILD" == true ]]; then
-                clean_build
-            fi
-            build_metal
-            ;;
-        build-rocm)
-            if [[ "$CLEAN_BUILD" == true ]]; then
-                clean_build
-            fi
-            build_rocm
-            ;;
-        build-vulkan)
-            if [[ "$CLEAN_BUILD" == true ]]; then
-                clean_build
-            fi
-            build_vulkan
-            ;;
-        scan)
-            if [[ -f "$HARDWARE_SCAN_SCRIPT" ]]; then
-                bash "$HARDWARE_SCAN_SCRIPT"
-            else
-                error "Hardware scanner not found"
-                exit 1
-            fi
-            ;;
-        verify)
-            verify_installation
-            ;;
-        clean)
-            clean_build
-            ;;
-        install-deps)
-            install_dependencies
-            ;;
-        *)
-            error "Unknown command: $command"
-            usage
-            exit 1
-            ;;
-    esac
-}
-
-main "$@"=============================================================================
 # Hemlock Llama.cpp Builder
 # 
 # Builds Llama.cpp with optimal configuration based on system hardware scan.
@@ -560,3 +306,484 @@ build_llama() {
     # Build
     log "Building..."
     
+    local thread_count="${BUILD_THREADS:-$(( $(nproc 2>/dev/null) > 4 ? $(nproc 2>/dev/null) : 4 ))}"
+    local make_cmd="cmake --build . -j ${thread_count} --config Release"
+    
+    dry_run_log "Build command: $make_cmd"
+    
+    if [[ "$DRY_RUN" == false ]]; then
+        eval "$make_cmd" || return 1
+    fi
+    
+    # Install
+    log "Installing to $INSTALL_DIR..."
+    
+    if [[ "$DRY_RUN" == false ]]; then
+        cp "$cmake_build_dir/llama-cli" "$INSTALL_DIR/" || return 1
+        if [[ -f "$cmake_build_dir/llama-server" ]]; then
+            cp "$cmake_build_dir/llama-server" "$INSTALL_DIR/"
+        fi
+        if [[ -f "$cmake_build_dir/main" ]]; then
+            cp "$cmake_build_dir/main" "$INSTALL_DIR/llama-cli"
+        fi
+        
+        # Create symlinks
+        ln -sf "$INSTALL_DIR/llama-cli" "$INSTALL_DIR/llama.cpp"
+        ln -sf "$INSTALL_DIR/llama-cli" "$INSTALL_DIR/main"
+        
+        # Make executable
+        chmod +x "$INSTALL_DIR/"llama-*
+    else
+        dry_run_log "Would install binaries to $INSTALL_DIR"
+        dry_run_log "  - llama-cli"
+        dry_run_log "  - llama-server (if built)"
+        dry_run_log "  - Symlinks: llama.cpp, main"
+    fi
+    
+    success "Llama.cpp built and installed with $backend backend"
+    
+    if [[ "$DRY_RUN" == false ]]; then
+        cd "$old_dir" || return 1
+    fi
+}
+
+# =============================================================================
+# Backend-specific build functions
+# =============================================================================
+build_metal() {
+    log "Building for Apple Metal..."
+    build_llama "metal" "LLAMA_METAL=ON LLAMA_METAL_EMBEDDING=ON" "$DEFAULT_BRANCH"
+}
+
+build_cuda() {
+    log "Building for NVIDIA CUDA..."
+    
+    # Check if CUDA toolkit is installed
+    if [[ ! -d /usr/local/cuda ]]; then
+        error "CUDA toolkit not found at /usr/local/cuda"
+        warn "Trying to build without explicit CUDA path..."
+    fi
+    
+    build_llama "cuda" "LLAMA_CUBLAS=ON LLAMA_CUDA=ON" "$DEFAULT_BRANCH"
+}
+
+build_rocm() {
+    log "Building for AMD ROCm..."
+    
+    if [[ ! -d /opt/rocm ]]; then
+        error "ROCm not found at /opt/rocm"
+        return 1
+    fi
+    
+    build_llama "hip" "LLAMA_HIP=ON LLAMA_HIPBLAS=ON" "$DEFAULT_BRANCH"
+}
+
+build_vulkan() {
+    log "Building for Vulkan..."
+    
+    if ! command -v vulkaninfo &>/dev/null; then
+        error "Vulkan not detected on system"
+        return 1
+    fi
+    
+    build_llama "vulkan" "LLAMA_VULKAN=ON" "$DEFAULT_BRANCH"
+}
+
+build_cpu() {
+    log "Building for CPU..."
+    
+    # Detect CPU features for optimization
+    local cpu_flags=""
+    if [[ -f /proc/cpuinfo ]]; then
+        local flags=$(cat /proc/cpuinfo | grep -m1 "flags" | cut -d':' -f2 | xargs)
+        if [[ "$flags" == *"avx512"* ]]; then
+            cpu_flags+=" LLAMA_AVX512=ON"
+        fi
+        if [[ "$flags" == *"avx2"* ]]; then
+            cpu_flags+=" LLAMA_AVX2=ON"
+        fi
+        if [[ "$flags" == *"avx"* ]]; then
+            cpu_flags+=" LLAMA_AVX=ON"
+        fi
+    fi
+    
+    build_llama "cpu" "$cpu_flags" "$DEFAULT_BRANCH"
+}
+
+# =============================================================================
+# Auto-detect and build
+# =============================================================================
+auto_build() {
+    log "Auto-detecting system configuration..."
+    
+    # Run hardware scan if not already done
+    if [[ ! -f "$RECOMMENDATIONS" ]]; then
+        if [[ -f "$HARDWARE_SCAN_SCRIPT" ]]; then
+            log "Running hardware scan..."
+            if [[ "$DRY_RUN" == true ]]; then
+                dry_run_log "Would run: $HARDWARE_SCAN_SCRIPT"
+            else
+                bash "$HARDWARE_SCAN_SCRIPT"
+            fi
+        else
+            error "Hardware scanner not found at $HARDWARE_SCAN_SCRIPT"
+            return 1
+        fi
+    else
+        verbose_log "Using cached recommendations from $RECOMMENDATIONS"
+    fi
+    
+    # Read recommendations or use defaults
+    local backend_info=$(get_system_config "$FORCE_BACKEND")
+    local backend=$(echo "$backend_info" | awk '{print $1}')
+    local build_flags=$(echo "$backend_info" | awk '{print $2}')
+    
+    if [[ "$FORCE_BACKEND" != "" && "$FORCE_BACKEND" != "auto" ]]; then
+        backend="$FORCE_BACKEND"
+        build_flags=""
+    fi
+    
+    log "Detected/Selected backend: $backend"
+    
+    if [[ "$backend" == "auto" ]]; then
+        backend="cpu"
+        log "No specific backend detected, defaulting to CPU"
+    fi
+    
+    # Build with detected/selected backend
+    case "$backend" in
+        "metal")
+            if [[ "$DRY_RUN" == false || "$FORCE_BACKEND" == "metal" ]]; then
+                build_metal
+            else
+                dry_run_log "Would build with Metal backend"
+            fi
+            ;;
+        "cuda")
+            if [[ "$DRY_RUN" == false || "$FORCE_BACKEND" == "cuda" ]]; then
+                build_cuda
+            else
+                dry_run_log "Would build with CUDA backend"
+            fi
+            ;;
+        "hip"|"rocm")
+            if [[ "$DRY_RUN" == false || "$FORCE_BACKEND" == "hip" || "$FORCE_BACKEND" == "rocm" ]]; then
+                build_rocm
+            else
+                dry_run_log "Would build with ROCm backend"
+            fi
+            ;;
+        "vulkan")
+            if [[ "$DRY_RUN" == false || "$FORCE_BACKEND" == "vulkan" ]]; then
+                build_vulkan
+            else
+                dry_run_log "Would build with Vulkan backend"
+            fi
+            ;;
+        *)
+            if [[ "$DRY_RUN" == false ]]; then
+                build_cpu
+            else
+                dry_run_log "Would build with CPU backend"
+            fi
+            ;;
+    esac
+}
+
+# =============================================================================
+# Clean build files
+# =============================================================================
+clean_build() {
+    if [[ "$DRY_RUN" == true ]]; then
+        dry_run_log "Would clean build files in $BUILD_DIR"
+        return 0
+    fi
+    
+    log "Cleaning build files..."
+    rm -rf "$BUILD_DIR"
+    success "Build directory cleaned: $BUILD_DIR"
+}
+
+# =============================================================================
+# Verify installation
+# =============================================================================
+verify_installation() {
+    if [[ "$DRY_RUN" == true ]]; then
+        dry_run_log "Would verify Llama.cpp installation in $INSTALL_DIR"
+        return 0
+    fi
+    
+    log "Verifying Llama.cpp installation..."
+    
+    local all_ok=true
+    
+    if [[ ! -f "$INSTALL_DIR/llama-cli" ]]; then
+        error "llama-cli not found in $INSTALL_DIR"
+        all_ok=false
+    else
+        success "llama-cli found"
+    fi
+    
+    if [[ -f "$INSTALL_DIR/llama-server" ]]; then
+        success "llama-server found"
+    fi
+    
+    # Test run
+    if command -v "$INSTALL_DIR/llama-cli" &>/dev/null; then
+        local version=$("$INSTALL_DIR/llama-cli" --version 2>&1 | head -1 || echo "unknown")
+        success "Llama.cpp version: $version"
+    else
+        error "llama-cli is not executable"
+        all_ok=false
+    fi
+    
+    if [[ "$all_ok" == true ]]; then
+        echo ""
+        echo "${GREEN}Llama.cpp installation VERIFIED${NC}"
+        echo "  Binary location: $INSTALL_DIR"
+        echo "  Helper binaries: llama-cli, llama-server"
+        return 0
+    else
+        return 1
+    fi
+}
+
+# =============================================================================
+# Install required build dependencies
+# =============================================================================
+install_dependencies() {
+    if [[ "$DRY_RUN" == true ]]; then
+        dry_run_log "Would install build dependencies"
+        return 0
+    fi
+    
+    log "Installing build dependencies..."
+    
+    local os_name=""
+    local os_version=""
+    
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        os_name="linux"
+        os_version=$(grep -oP 'VERSION_ID=\K[^\\"]+' /etc/os-release 2>/dev/null || echo "unknown")
+        
+        log "Detected Linux distribution: $os_version"
+        
+        if [[ "$os_version" == *"ubuntu"* || "$os_version" == *"debian"* || "$os_version" == *"pop"* ]]; then
+            log "Installing dependencies for Debian/Ubuntu-based system..."
+            dry_run_wrapper "sudo apt-get update && sudo apt-get install -y git make cmake gcc g++ python3 python3-pip wget curl jq" \
+                "Install build essentials"
+        elif [[ "$os_version" == *"fedora"* || "$os_version" == *"rhel"* || "$os_version" == *"centos"* ]]; then
+            log "Installing dependencies for Fedora/RHEL-based system..."
+            dry_run_wrapper "sudo dnf install -y git make cmake gcc gcc-c++ python3 python3-pip wget curl jq" \
+                "Install build essentials"
+        elif [[ "$os_version" == *"arch"* ]]; then
+            log "Installing dependencies for Arch-based system..."
+            dry_run_wrapper "sudo pacman -Syu --noconfirm git make cmake gcc python python-pip wget curl jq" \
+                "Install build essentials"
+        else
+            log "Unknown Linux distribution, attempting generic install..."
+            dry_run_wrapper "sudo apt-get update && sudo apt-get install -y git make cmake gcc g++ python3 python3-pip wget curl jq 2>/dev/null || \
+                           sudo dnf install -y git make cmake gcc gcc-c++ python3 python3-pip wget curl jq 2>/dev/null || \
+                           sudo pacman -Syu --noconfirm git make cmake gcc python python-pip wget curl jq 2>/dev/null" \
+                "Install build essentials (generic)"
+        fi
+        
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        os_name="macos"
+        os_version=$(sw_vers -productVersion 2>/dev/null || echo "unknown")
+        
+        log "Detected macOS: $os_version"
+        
+        if ! command -v brew &>/dev/null; then
+            warn "Homebrew not found, installing Homebrew first..."
+            dry_run_wrapper "/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"" \
+                "Install Homebrew"
+        fi
+        
+        dry_run_wrapper "brew install git make cmake pkg-config jq wget curl" \
+            "Install build essentials via Homebrew"
+        
+    else
+        error "Unsupported OS: $OSTYPE"
+        return 1
+    fi
+    
+    success "Build dependencies installed"
+}
+
+# =============================================================================
+# Parse Command Line Options
+# =============================================================================
+parse_options() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --backend)
+                FORCE_BACKEND="$2"
+                shift 2
+                ;;
+            --dry-run)
+                DRY_RUN=true
+                shift
+                ;;
+            --verbose|-v)
+                VERBOSE=true
+                shift
+                ;;
+            --clean)
+                CLEAN_BUILD=true
+                shift
+                ;;
+            --branch)
+                DEFAULT_BRANCH="$2"
+                shift 2
+                ;;
+            --threads)
+                BUILD_THREADS="$2"
+                shift 2
+                ;;
+            --help|-h)
+                usage
+                exit 0
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
+}
+
+# =============================================================================
+# USAGE
+# =============================================================================
+usage() {
+    cat <<EOF
+${CYAN}Hemlock Llama.cpp Builder${NC}
+
+Builds Llama.cpp with optimal configuration based on system hardware.
+Supports: CPU, CUDA, ROCm, Metal, Vulkan backends
+
+${BLUE}Usage:${NC}
+  $0 [OPTIONS] <COMMAND>
+
+${BLUE}Options:${NC}
+  --backend <type>    Specify backend: auto, metal, cuda, rocm, vulkan, cpu (default: auto)
+  --dry-run           Preview actions without executing
+  --verbose, -v       Enable verbose output
+  --help, -h          Show this help
+  --clean             Clean build files before building
+  --branch <name>     Use specific llama.cpp branch (default: master)
+  --threads <n>       Number of build threads (default: auto)
+
+${BLUE}Commands:${NC}
+  build              Build Llama.cpp (default)
+  auto               Auto-detect and build (same as build)
+  build-cpu          Force CPU-only build
+  build-cuda         Force CUDA build
+  build-metal        Force Metal build
+  build-rocm         Force ROCm build
+  build-vulkan       Force Vulkan build
+  scan               Run hardware scan only
+  verify             Verify installation
+  clean              Clean build files
+  install-deps       Install required dependencies
+
+${BLUE}Examples:${NC}
+  $0                                     # Auto-detect and build
+  $0 --backend auto --verbose           # Auto with verbose
+  $0 --backend cuda                      # Force CUDA build
+  $0 --backend metal --dry-run          # Preview Metal build
+  $0 build-cpu                           # Force CPU build
+  $0 install-deps                        # Install dependencies only
+  $0 clean                               # Clean build files
+
+EOF
+}
+
+# =============================================================================
+# Main
+# =============================================================================
+main() {
+    local command="${1:-}"
+    shift
+    
+    # Parse options
+    parse_options "$@"
+    
+    # Set first positional argument back after options are consumed
+    # This allows commands like: ./llama-build.sh --backend cuda build
+    
+    # Show help if no command given
+    if [[ "$command" == "" && $# -eq 0 ]]; then
+        if [[ "$FORCE_BACKEND" != "" || "$DRY_RUN" == true || "$VERBOSE" == true ]]; then
+            # If flags provided, assume build command
+            command="build"
+        else
+            usage
+            exit 0
+        fi
+    fi
+    
+    # Handle commands
+    case "$command" in
+        build|auto|"")
+            if [[ "$CLEAN_BUILD" == true ]]; then
+                clean_build
+            fi
+            auto_build
+            ;;
+        build-cpu)
+            if [[ "$CLEAN_BUILD" == true ]]; then
+                clean_build
+            fi
+            build_cpu
+            ;;
+        build-cuda)
+            if [[ "$CLEAN_BUILD" == true ]]; then
+                clean_build
+            fi
+            build_cuda
+            ;;
+        build-metal)
+            if [[ "$CLEAN_BUILD" == true ]]; then
+                clean_build
+            fi
+            build_metal
+            ;;
+        build-rocm)
+            if [[ "$CLEAN_BUILD" == true ]]; then
+                clean_build
+            fi
+            build_rocm
+            ;;
+        build-vulkan)
+            if [[ "$CLEAN_BUILD" == true ]]; then
+                clean_build
+            fi
+            build_vulkan
+            ;;
+        scan)
+            if [[ -f "$HARDWARE_SCAN_SCRIPT" ]]; then
+                bash "$HARDWARE_SCAN_SCRIPT"
+            else
+                error "Hardware scanner not found"
+                exit 1
+            fi
+            ;;
+        verify)
+            verify_installation
+            ;;
+        clean)
+            clean_build
+            ;;
+        install-deps)
+            install_dependencies
+            ;;
+        *)
+            error "Unknown command: $command"
+            usage
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"
