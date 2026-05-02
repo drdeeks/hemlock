@@ -17,3 +17,12 @@ Agent unit-test-agent-708848 started at Sat Apr 25 06:31:09 PM UTC 2026
 [2026-04-26 05:11:05] [INFO] Agent thidden264 exported successfully to /tmp/test_hidden_export_264
 [2026-04-26 05:23:33] [INFO] Added agent thidden011 to docker-compose.yml
 [2026-04-26 05:23:33] [INFO] Agent thidden011 exported successfully to /tmp/test_hidden_export_011
+[2026-05-02 14:24:54] [INFO] Added agent thidden893 to docker-compose.yml
+[2026-05-02 14:24:54] [INFO] Agent thidden893 exported successfully to /tmp/test_hidden_export_893
+[2026-05-02 14:40:33] [INFO] Added agent thidden832 to docker-compose.yml
+[2026-05-02 14:40:33] [INFO] Agent thidden832 exported successfully to /tmp/test_hidden_export_832
+[2026-05-02 14:48:55] [INFO] Agent exported-agent-1777733335 exported successfully to /home/ubuntu/projects/hemlock/tests/integration/data/export-test
+[2026-05-02 14:48:55] [INFO] Agent consistency-test-agent-1777733335 exported successfully to /home/ubuntu/projects/hemlock/tests/integration/data/consistency-export
+[2026-05-02 14:48:56] [INFO] Agent consistency-test-agent-1777733335 exported successfully to /home/ubuntu/projects/hemlock/tests/integration/data/agent-export-consistency
+[2026-05-02 14:48:56] [INFO] Agent hidden-consistency-test-agent-1777733336 exported successfully to /home/ubuntu/projects/hemlock/tests/integration/data/hidden-export-consistency
+[2026-05-02 15:08:15] [INFO] Agent consistency-test-agent-1777734495 exported successfully to /home/ubuntu/projects/hemlock/tests/integration/data/consistency-export

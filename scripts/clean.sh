@@ -321,7 +321,7 @@ main() {
             echo "  $0 quick               # Quick cleanup (logs + temp)"
             echo "  $0 deep               # Deep cleanup (all + Docker)"
             echo "  $0 logs               # Clean logs only"
-            echo "  $0 delete aton        # Cleanup after deleting aton"
+            echo "  $0 delete <agent_id>  # Cleanup after deleting agent"
             exit 1
             ;;
     esac

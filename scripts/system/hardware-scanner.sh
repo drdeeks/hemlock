@@ -1,31 +1,3 @@
-# Hemlock System Hardware Scanner
-# 
-# Scans system for available acceleration capabilities and recommends
-# optimal Llama.cpp build configuration.
-# 
-# Detects: CPU features, NVIDIA CUDA, AMD ROCm, Apple Metal, Vulkan
-# =============================================================================
-
-set -euo pipefail
-
-# Color codes
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-NC='\033[0m'
-
-SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-RUNTIME_ROOT="$(dirname "$SCRIPTS_DIR")"
-CONFIG_DIR="$RUNTIME_ROOT/config"
-CACHE_DIR="$RUNTIME_ROOT/.cache"
-
-# Output file for scan results
-SCAN_RESULTS="$CACHE_DIR/hardware-scan.json"
-
-mkdir -p "$CACHE_DIR"
-=======
 #!/bin/bash
 # =============================================================================
 # Hemlock System Hardware Scanner
@@ -135,7 +107,7 @@ parse_options "$@"
 if [[ "$HELP" == "true" ]]; then
     usage
     exit 0
-fi=============================================================================
+fi
 # Hemlock System Hardware Scanner
 # 
 # Scans system for available acceleration capabilities and recommends
@@ -422,6 +394,7 @@ generate_recommendations() {
     local has_vulkan=$(jq -r '.vulkan.detected' "$scan_file" 2>/dev/null || echo "false")
     local cpu_threads=$(jq -r '.cpu.threads' "$scan_file" 2>/dev/null || echo "1")
     local memory_gb=$(jq -r '.cpu.memory_gb' "$scan_file" 2>/dev/null || echo "0")
+    local has_avx=$(jq -r '.cpu.avx' "$scan_file" 2>/dev/null || echo "false")
     local has_avx2=$(jq -r '.cpu.avx2' "$scan_file" 2>/dev/null || echo "false")
     local has_avx512=$(jq -r '.cpu.avx512' "$scan_file" 2>/dev/null || echo "false")
     

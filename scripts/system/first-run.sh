@@ -336,18 +336,10 @@ USEREOF
     success "Helper agent created at $helper_dir"
     
     # Update agent reference in list
-    if [[ -d "$RUNTIME_ROOT/agents/aton" ]]; then
-        # Make helper the default, but keep aton
-        cat > "$helper_dir/.priority" <<EOF
+    # Make helper the default agent
+    cat > "$helper_dir/.priority" <<EOF
 1
 EOF
-        
-        if [[ -f "$AGENTS_DIR/aton/.priority" ]]; then
-            : # aton already has a priority
-        else
-            echo "2" > "$AGENTS_DIR/aton/.priority"
-        fi
-    fi
 }
 
 # =============================================================================

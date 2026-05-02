@@ -9,9 +9,16 @@ set -euo pipefail
 
 # Test configuration
 TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-RUNTIME_ROOT="$(dirname "$TESTS_DIR")"
+# Find RUNTIME_ROOT by searching for runtime.sh
+RUNTIME_ROOT="$TESTS_DIR"
+while [[ "$RUNTIME_ROOT" != "/" && ! -f "$RUNTIME_ROOT/runtime.sh" ]]; do
+    RUNTIME_ROOT="$(dirname "$RUNTIME_ROOT")"
+done
+if [[ ! -f "$RUNTIME_ROOT/runtime.sh" ]]; then
+    RUNTIME_ROOT="$(cd "$TESTS_DIR/../../.." && pwd)"
+fi
 SCRIPTS_DIR="$RUNTIME_ROOT/scripts/system"
-TEST_HELPERS="$TESTS_DIR/test-helpers.sh"
+TEST_HELPERS="$TESTS_DIR/../test-helpers.sh"
 
 # Source test helpers
 if [[ -f "$TEST_HELPERS" ]]; then

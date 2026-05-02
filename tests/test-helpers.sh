@@ -545,9 +545,18 @@ assert_is_not_float() {
     return 0
 }
 
+
 # Assert variable is a boolean
 assert_is_boolean() {
     local actual="$1"
     local message="$2"
     
-    if [[ "$actual" !=
+    if [[ "$actual" == "true" || "$actual" == "false" ]]; then
+        success "Value is a boolean: $actual"
+        return 0
+    fi
+    
+    error "Assertion failed: $message"
+    error "Expected boolean, got: $actual"
+    return 1
+}

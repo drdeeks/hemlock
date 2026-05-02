@@ -57,7 +57,7 @@ fi
 
 # 2. Test backup-interactive.sh can show help
 test "backup-interactive.sh shows help"
-local help_output
+help_output
 help_output=$(cd "$RUNTIME_ROOT" && ./scripts/backup-interactive.sh --help 2>&1 || true)
 if echo "$help_output" | grep -qi "usage\|help\|backup"; then
     pass "backup-interactive.sh shows help"
@@ -67,7 +67,7 @@ fi
 
 # 3. Test backup-interactive.sh with --version
 test "backup-interactive.sh shows version"
-local version_output
+version_output
 version_output=$(cd "$RUNTIME_ROOT" && ./scripts/backup-interactive.sh --version 2>&1 || true)
 if echo "$version_output" | grep -qi "version\|Interactive Backup"; then
     pass "backup-interactive.sh shows version"
@@ -77,7 +77,7 @@ fi
 
 # 4. Test backup-interactive.sh with --dry-run
 test "backup-interactive.sh dry-run"
-local dryrun_output
+dryrun_output
  dryrun_output=$(cd "$RUNTIME_ROOT" && timeout 5 ./scripts/backup-interactive.sh --dry-run 2>&1 || true)
 if echo "$dryrun_output" | grep -qi "dry.run\|DRY-RUN\|Dry"; then
     pass "backup-interactive.sh supports dry-run"
@@ -95,7 +95,7 @@ fi
 
 # 6. Test runtime.sh can show help
 test "runtime.sh shows help"
-local runtime_help
+runtime_help
 runtime_help=$(cd "$RUNTIME_ROOT" && ./runtime.sh --help 2>&1 || true)
 if echo "$runtime_help" | grep -qi "usage\|help\|runtime"; then
     pass "runtime.sh shows help"
@@ -105,7 +105,7 @@ fi
 
 # 7. Test runtime.sh backup command
 test "runtime.sh backup command"
-local backup_help
+backup_help
 backup_help=$(cd "$RUNTIME_ROOT" && ./runtime.sh backup --help 2>&1 || true)
 if echo "$backup_help" | grep -qi "backup\|Backup"; then
     pass "runtime.sh backup command works"
@@ -131,7 +131,7 @@ fi
 
 # 10. Test scripts directory has all required scripts
 test "All required scripts exist"
-local required_scripts=(
+required_scripts=(
     "backup-interactive.sh"
     "tool-inject-memory.sh"
     "create_crew.py"
@@ -140,9 +140,9 @@ local required_scripts=(
     "restore.sh"
     "runtime.sh"
 )
-local missing=0
+missing=0
 for script in "${required_scripts[@]}"; do
-    local path="$RUNTIME_ROOT/scripts/$script"
+    path="$RUNTIME_ROOT/scripts/$script"
     if [[ "$script" == "runtime.sh" ]]; then
         path="$RUNTIME_ROOT/runtime.sh"
     fi

@@ -1,0 +1,10 @@
+export:
+  agent_id: exported-agent-1777733335
+  timestamp: 2026-05-02 14:48:55
+  source: /home/ubuntu/projects/hemlock/agents/exported-agent-1777733335
+  destination: /home/ubuntu/projects/hemlock/tests/integration/data/export-test
+  files:
+    - config.yaml
+    - data/SOUL.md
+    - data/AGENTS.md
+    - data/MEMORY.md
