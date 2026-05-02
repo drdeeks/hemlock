@@ -251,9 +251,7 @@ main() {
     with_self_healing validate_directory_permissions || total_errors=$((total_errors + 1))
     log ""
     
-    # Final summary — rely on total_errors (tracks with_self_healing results)
-    # with_self_healing returns 0 after successful self-heal, so total_errors
-    # is 0 when all checks either passed or self-healed successfully.
+    # Final summary
     log "=========================================="
     if [[ $total_errors -eq 0 ]]; then
         success "All permission validation passed (self-healing applied where needed)"

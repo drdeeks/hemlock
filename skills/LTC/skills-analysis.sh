@@ -3,8 +3,8 @@
 # Skill Analysis Script for OpenClaw, Hermes, and Vibe Compatibility
 # Analyzes all skills in the skills/ directory
 
-SKILLS_DIR="/home/drdeek/.openclaw/agents/aton/projects/hypersnap-roast-or-toast/skills"
-OUTPUT_FILE="/home/drdeek/.openclaw/agents/aton/projects/hypersnap-roast-or-toast/SKILLS_ANALYSIS_REPORT.md"
+SKILLS_DIR="${RUNTIME_ROOT:-$(pwd)}/skills"
+OUTPUT_FILE="${RUNTIME_ROOT:-$(pwd)}/SKILLS_ANALYSIS_REPORT.md"
 TMP_DIR=$(mktemp -d)
 
 # Colors for output
@@ -49,7 +49,7 @@ cat > "$OUTPUT_FILE" << 'EOF'
 # Skills Analysis Report
 
 **Generated**: $(date)
-**Skills Directory**: /home/drdeek/.openclaw/agents/aton/projects/hypersnap-roast-or-toast/skills
+**Skills Directory**: ${SKILLS_DIR}
 **Total Skills**: 0
 
 ---

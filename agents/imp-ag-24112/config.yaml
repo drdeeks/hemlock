@@ -1,0 +1,4 @@
+agent:
+  id: source-agent
+  name: Source Agent
+  model: gpt-4

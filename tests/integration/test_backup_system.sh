@@ -36,7 +36,7 @@ fail() {
     FAIL=$((FAIL + 1))
 }
 
-run_test() {
+test() {
     TOTAL=$((TOTAL + 1))
     echo -e "\033[0;34m[TEST]\033[0m $1"
 }
@@ -48,7 +48,7 @@ echo "=========================================="
 echo ""
 
 # 1. Test backup-interactive.sh exists and is executable
-run_test "backup-interactive.sh exists"
+test "backup-interactive.sh exists"
 if [[ -x "$RUNTIME_ROOT/scripts/backup-interactive.sh" ]]; then
     pass "backup-interactive.sh is executable"
 else
@@ -56,7 +56,7 @@ else
 fi
 
 # 2. Test backup-interactive.sh can show help
-run_test "backup-interactive.sh shows help"
+test "backup-interactive.sh shows help"
 help_output=$(cd "$RUNTIME_ROOT" && ./scripts/backup-interactive.sh --help 2>&1 || true)
 if echo "$help_output" | grep -qi "usage\|help\|backup"; then
     pass "backup-interactive.sh shows help"
@@ -65,17 +65,16 @@ else
 fi
 
 # 3. Test backup-interactive.sh with --version
-run_test "backup-interactive.sh --version flag handled"
+test "backup-interactive.sh shows version"
 version_output=$(cd "$RUNTIME_ROOT" && ./scripts/backup-interactive.sh --version 2>&1 || true)
-# Some implementations show version info, others silently accept; either is fine
 if echo "$version_output" | grep -qi "version\|Interactive Backup"; then
-    pass "backup-interactive.sh shows version info"
+    pass "backup-interactive.sh shows version"
 else
-    pass "backup-interactive.sh --version flag handled (no version output)"
+    fail "backup-interactive.sh does not show version"
 fi
 
 # 4. Test backup-interactive.sh with --dry-run
-run_test "backup-interactive.sh dry-run"
+test "backup-interactive.sh dry-run"
 dryrun_output=$(cd "$RUNTIME_ROOT" && timeout 5 ./scripts/backup-interactive.sh --dry-run 2>&1 || true)
 if echo "$dryrun_output" | grep -qi "dry.run\|DRY-RUN\|Dry"; then
     pass "backup-interactive.sh supports dry-run"
@@ -84,7 +83,7 @@ else
 fi
 
 # 5. Test runtime.sh exists and is executable
-run_test "runtime.sh exists"
+test "runtime.sh exists"
 if [[ -x "$RUNTIME_ROOT/runtime.sh" ]]; then
     pass "runtime.sh is executable"
 else
@@ -92,7 +91,8 @@ else
 fi
 
 # 6. Test runtime.sh can show help
-run_test "runtime.sh shows help"
+test "runtime.sh shows help"
+runtime_help
 runtime_help=$(cd "$RUNTIME_ROOT" && ./runtime.sh --help 2>&1 || true)
 if echo "$runtime_help" | grep -qi "usage\|help\|runtime"; then
     pass "runtime.sh shows help"
@@ -101,7 +101,8 @@ else
 fi
 
 # 7. Test runtime.sh backup command
-run_test "runtime.sh backup command"
+test "runtime.sh backup command"
+backup_help
 backup_help=$(cd "$RUNTIME_ROOT" && ./runtime.sh backup --help 2>&1 || true)
 if echo "$backup_help" | grep -qi "backup\|Backup"; then
     pass "runtime.sh backup command works"
@@ -110,7 +111,7 @@ else
 fi
 
 # 8. Test tool-inject-memory.sh exists
-run_test "tool-inject-memory.sh exists"
+test "tool-inject-memory.sh exists"
 if [[ -x "$RUNTIME_ROOT/scripts/tool-inject-memory.sh" ]]; then
     pass "tool-inject-memory.sh is executable"
 else
@@ -118,7 +119,7 @@ else
 fi
 
 # 9. Test create_crew.py exists
-run_test "create_crew.py exists"
+test "create_crew.py exists"
 if [[ -f "$RUNTIME_ROOT/scripts/create_crew.py" ]]; then
     pass "create_crew.py exists"
 else
@@ -126,7 +127,7 @@ else
 fi
 
 # 10. Test scripts directory has all required scripts
-run_test "All required scripts exist"
+test "All required scripts exist"
 required_scripts=(
     "backup-interactive.sh"
     "tool-inject-memory.sh"

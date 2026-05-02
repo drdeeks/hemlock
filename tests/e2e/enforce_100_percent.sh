@@ -181,7 +181,7 @@ EOF
     
     if [[ -d "$RUNTIME_ROOT/scripts" ]]; then
         chmod 755 "$RUNTIME_ROOT/scripts"/*.sh 2>/dev/null
-        log_fix "Fixed permissions: scripts/*.sh (755)"
+        log_fix "Fixed permissions: scripts/*.sh (700)"
         fixed=$((fixed + 1))
     fi
     

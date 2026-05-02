@@ -30,6 +30,52 @@ if [[ -f "$RUNTIME_ROOT/lib/common.sh" ]]; then
 fi
 
 # =============================================================================
+# FIRST-RUN INITIALIZATION
+# =============================================================================
+FIRST_RUN_FLAG="$RUNTIME_ROOT/.cache/.first_run_completed"
+
+# Check if first-run initialization is needed
+is_first_run() {
+    if [[ ! -f "$FIRST_RUN_FLAG" ]]; then
+        return 0
+    fi
+    return 1
+}
+
+# Check if system is already initialized with default model
+is_initialized() {
+    # Check if default model exists
+    if [[ -f "$RUNTIME_ROOT/models/gguf/qwen3-0_6b-Q4_K_M.gguf" ]] || \
+       [[ -f "$RUNTIME_ROOT/models/gguf/qwen3-0_6b-Q4_K_M.gguf" ]]; then
+        return 0
+    fi
+    
+    # Check if first run flag exists
+    if [[ -f "$FIRST_RUN_FLAG" ]]; then
+        return 0
+    fi
+    
+    return 1
+}
+
+# Run first-run initialization
+run_first_run_initialization() {
+    local first_run_script="$SCRIPTS_DIR/system/first-run.sh"
+    
+    if [[ -f "$first_run_script" ]]; then
+        log "Running first-run initialization..."
+        log "This will setup Qwen3:0.6B as default model with Llama.cpp"
+        echo ""
+        bash "$first_run_script" full
+        echo ""
+    else
+        warn "First-run script not found at $first_run_script"
+        warn "Falling back to basic setup..."
+        setup_system
+    fi
+}
+
+# =============================================================================
 # USAGE
 # =============================================================================
 
@@ -67,7 +113,8 @@ ${BLUE}Commands:${NC}
   inject-all-memory     Inject memory for all agents
   
   # System
-  setup                 First-time setup
+  setup                 Basic system setup (legacy)
+  initialize            First-time initialization (Qwen3:0.6B + Llama.cpp)
   update                Update all agents and crews
   status                Show system status
   self-check            Run system diagnostics
@@ -83,6 +130,7 @@ ${BLUE}Options:${NC}
   --verbose, -v        Verbose output
   --dry-run            Test without making changes
   --force, -f         Force operations
+  --skip-init          Skip first-run initialization
 
 ${BLUE}Examples:${NC}
   $0 setup
@@ -955,6 +1003,7 @@ VERBOSE=false
 QUIET=false
 DRY_RUN=false
 FORCE=false
+SKIP_INIT=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -975,6 +1024,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --force|-f)
             FORCE=true
+            shift
+            ;;
+        --skip-init)
+            SKIP_INIT=true
             shift
             ;;
         create-agents)
@@ -1054,6 +1107,10 @@ while [[ $# -gt 0 ]]; do
             COMMAND="setup"
             shift
             ;;
+        initialize)
+            COMMAND="initialize"
+            shift
+            ;;
         update)
             COMMAND="update"
             shift
@@ -1094,13 +1151,39 @@ done
 
 case "$COMMAND" in
     "")
+        # Check if first run and suggest initialization
+        if $(is_first_run) && ! $(is_initialized); then
+            echo ""
+            log "${YELLOW}=============================================================================${NC}"
+            log "${YELLOW}  Hemlock Enterprise - First Run Detected                              ${NC}"
+            log "${YELLOW}=============================================================================${NC}"
+            echo ""
+            log "Run the following command to initialize the system with Qwen3:0.6B:"
+            log "  $0 initialize"
+            echo ""
+            log "This will:"
+            log "  1. Scan system hardware"
+            log "  2. Build Llama.cpp with optimal backend"
+            log "  3. Download and convert Qwen3:0.6B model"
+            log "  4. Configure as default active agent"
+            log "  5. Create helper agent"
+            echo ""
+        fi
         usage
         ;;
     create-agents|create-agents-from-plugin)
-        create_agents_from_plugin
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping agent creation"
+        else
+            create_agents_from_plugin
+        fi
         ;;
     finalize-agents|finalize-agents-from-plugin)
-        finalize_agents_from_plugin
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping agent finalization"
+        else
+            finalize_agents_from_plugin
+        fi
         ;;
     list-agents)
         list_agents
@@ -1110,22 +1193,42 @@ case "$COMMAND" in
         delete_agent "$@"
         ;;
     create-crew)
-        create_crew "$@"
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping crew creation"
+        else
+            create_crew "$@"
+        fi
         ;;
     activate-crew)
-        activate_crew "$@"
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping crew activation"
+        else
+            activate_crew "$@"
+        fi
         ;;
     deactivate-crew)
-        deactivate_crew "$@"
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping crew deactivation"
+        else
+            deactivate_crew "$@"
+        fi
         ;;
     list-crews)
         list_crews
         ;;
     backup)
-        backup_command "$@"
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping backup"
+        else
+            backup_command "$@"
+        fi
         ;;
     backup-init)
-        backup_command init
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping backup initialization"
+        else
+            backup_command init
+        fi
         ;;
     backup-status)
         backup_command status
@@ -1137,19 +1240,55 @@ case "$COMMAND" in
         validate_modules
         ;;
     restore)
-        backup_command restore "$@"
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping restore"
+        else
+            backup_command restore "$@"
+        fi
         ;;
     inject-memory)
-        inject_memory_single "$@"
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping memory injection"
+        else
+            inject_memory_single "$@"
+        fi
         ;;
     inject-all-memory)
-        inject_all_memory "$@"
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping all memory injection"
+        else
+            inject_all_memory "$@"
+        fi
         ;;
     setup)
-        setup_system
+        # Legacy setup - now redirects to initialize for full setup
+        if $(is_first_run); then
+            if [[ "$SKIP_INIT" == true ]]; then
+                log "Skipping initialization"
+            else
+                run_first_run_initialization
+            fi
+        else
+            if [[ "$SKIP_INIT" == true ]]; then
+                log "Skipping system setup"
+            else
+                setup_system
+            fi
+        fi
+        ;;
+    initialize)
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping initialization"
+        else
+            run_first_run_initialization
+        fi
         ;;
     update)
-        update_system
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping system update"
+        else
+            update_system
+        fi
         ;;
     system-status|status)
         system_status
@@ -1161,10 +1300,18 @@ case "$COMMAND" in
         list_plugins
         ;;
     enable-plugin)
-        enable_plugin "$@"
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping plugin enable"
+        else
+            enable_plugin "$@"
+        fi
         ;;
     disable-plugin)
-        disable_plugin "$@"
+        if [[ "$SKIP_INIT" == true ]]; then
+            log "Skipping plugin disable"
+        else
+            disable_plugin "$@"
+        fi
         ;;
     *)
         error "Unknown command: $COMMAND"

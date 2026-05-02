@@ -15,3 +15,27 @@ Agent unit-test-agent-708848 started at Sat Apr 25 06:31:09 PM UTC 2026
 [2026-04-25 21:36:32] [INFO] Agent thidden990 exported successfully to /tmp/test_hidden_export_990
 [2026-05-02 18:09:04] [INFO] Agent thidden344 exported successfully to /tmp/test_hidden_export_344
 [2026-05-02 18:11:25] [INFO] Agent thidden485 exported successfully to /tmp/test_hidden_export_485
+[2026-05-02 19:19:24] [INFO] Agent thidden563 exported successfully to /tmp/test_hidden_export_563
+[2026-05-02 19:31:35] [INFO] Agent consistency-test-agent-1777750294 exported successfully to /home/runner/workspace/tests/integration/data/agent-export-consistency
+[2026-05-02 19:31:36] [INFO] Agent hidden-consistency-test-agent-1777750296 exported successfully to /home/runner/workspace/tests/integration/data/hidden-export-consistency
+[2026-05-02 19:31:46] [INFO] Agent consistency-test-agent-1777750306 exported successfully to /home/runner/workspace/tests/integration/data/agent-export-consistency
+[2026-05-02 19:31:48] [INFO] Agent hidden-consistency-test-agent-1777750308 exported successfully to /home/runner/workspace/tests/integration/data/hidden-export-consistency
+[2026-05-02 19:31:52] [INFO] Agent hidden-test-agent-1777750312 exported successfully to /home/runner/workspace/tests/integration/data/agent-export-hidden
+[2026-05-02 19:42:46] [INFO] Agent caa1-0965 created successfully
+[2026-05-02 19:42:47] [INFO] Agent caa2-0965 created successfully
+[2026-05-02 19:49:55] [INFO] Agent rt-ag-24263 exported successfully to /tmp/agent_import_export_test_24263/roundtrip
+[2026-05-02 19:51:12] [INFO] Agent rt-ag-24924 exported successfully to /tmp/agent_import_export_test_24924/roundtrip
+[2026-05-02 19:53:05] [INFO] Agent exp-ag-25613 created successfully
+[2026-05-02 19:53:05] [INFO] Agent exp-ag-25613 exported successfully to /tmp/agent_import_export_test_25613/export
+[2026-05-02 19:53:05] [INFO] Agent rt-ag-25613 created successfully
+[2026-05-02 19:53:06] [INFO] Agent rt-ag-25613 exported successfully to /tmp/agent_import_export_test_25613/roundtrip
+[2026-05-02 19:53:23] [INFO] Agent utest-mgmt-25831 created successfully
+[2026-05-02 19:53:50] [INFO] Agent soul-tst-26061 created successfully
+[2026-05-02 19:54:17] [INFO] Agent exp-ag-26146 created successfully
+[2026-05-02 19:54:18] [INFO] Agent exp-ag-26146 exported successfully to /tmp/agent_import_export_test_26146/export
+[2026-05-02 19:54:18] [INFO] Agent rt-ag-26146 created successfully
+[2026-05-02 19:54:18] [INFO] Agent rt-ag-26146 exported successfully to /tmp/agent_import_export_test_26146/roundtrip
+[2026-05-02 19:56:10] [INFO] Agent caa1-1768 created successfully
+[2026-05-02 19:56:10] [INFO] Agent caa2-1768 created successfully
+[2026-05-02 19:56:24] [INFO] Agent exported-agent-1777751783 exported successfully to /home/runner/workspace/tests/integration/data/export-test
+[2026-05-02 19:56:25] [INFO] Agent consistency-test-agent-1777751785 exported successfully to /home/runner/workspace/tests/integration/data/consistency-export

@@ -1,0 +1,10 @@
+export:
+  agent_id: exported-agent-1777751783
+  timestamp: 2026-05-02 19:56:24
+  source: /home/runner/workspace/agents/exported-agent-1777751783
+  destination: /home/runner/workspace/tests/integration/data/export-test
+  files:
+    - config.yaml
+    - data/SOUL.md
+    - data/AGENTS.md
+    - data/MEMORY.md

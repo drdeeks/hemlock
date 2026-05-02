@@ -167,7 +167,7 @@ find_backup_path() {
     fi
     
     # Find matching backup
-    for backup_path in "$BACKUP_DIR"/docker-backup-*； do
+    for backup_path in "$BACKUP_DIR"/docker-backup-* ; do
         if [[ -d "$backup_path" ]]; then
             local base_name=$(basename "$backup_path")
             if [[ "$base_name" == "docker-backup-$name" ]] || [[ "$base_name" == "$name" ]]; then
@@ -388,9 +388,20 @@ restore_from_backup() {
     
     # Restore files
     while IFS= read -r line; do
-        if [[ "$line" =~ ^File:\ (.*)\ ->\ (.*\.backup)$ ]]; then
-            local src_file="$backup_path/${BASH_REMATCH[2]}"
-            local dest_file="$SOURCE_DIR/${BASH_REMATCH[1]}"
+        if [[ "$line" =~ ^File:\  ]]; then
+            # Extract source and dest from "File: <dest> -> <src>.backup"
+            local dest_file="${line#File: }"
+            local arrow_pos
+            arrow_pos=$(echo "$dest_file" | grep -aob '->' | head -1 | cut -d: -f1)
+            if [[ -n "$arrow_pos" ]]; then
+                local src_file="${dest_file:${arrow_pos}+2}"
+                src_file="${src_file%.backup}"
+                dest_file="${dest_file:0:${arrow_pos}}"
+                src_file="$backup_path/$src_file"
+                dest_file="$SOURCE_DIR/$dest_file"
+            else
+                continue
+            fi
             
             if [[ -f "$src_file" ]]; then
                 log "  Restoring: ${BASH_REMATCH[1]}"

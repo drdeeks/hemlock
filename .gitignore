@@ -1,12 +1,185 @@
-docker-compose.yml
-docker-compose.yml.bak
-docker-compose.yml
-docker-compose.yml.bak
-docker-compose.yml
-docker-compose.yml.bak
-docker-compose.yml
-docker-compose.yml.bak
-docker-compose.yml
-docker-compose.yml.bak
-docker-compose.yml
-docker-compose.yml.bak
+# =============================================================================
+# OpenClaw Enterprise Framework - Git Ignore File
+# 
+# Files and directories excluded from version control
+# Optimized for security and build efficiency
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Security-Sensitive Files (NEVER include in images)
+# -----------------------------------------------------------------------------
+.env
+.env.*
+*.env
+*.secret
+*.key
+*.pem
+*.enc
+*token*
+*secret*
+*password*
+*private*key*
+*api*key*
+
+# -----------------------------------------------------------------------------
+# Git and Version Control
+# -----------------------------------------------------------------------------
+.git/
+.gitignore
+.gitmodules
+.gitconfig
+.gitattributes
+
+# -----------------------------------------------------------------------------
+# Documentation (not needed in runtime images)
+# -----------------------------------------------------------------------------
+*.md
+*.rst
+*.txt
+README*
+LICENSE*
+CHANGELOG*
+CHANGES*
+CONTRIBUTING*
+CODE_OF_CONDUCT*
+
+# -----------------------------------------------------------------------------
+# IDE and Editor Files
+# -----------------------------------------------------------------------------
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
+*.swp
+*.swo
+*~
+
+# -----------------------------------------------------------------------------
+# OS and System Files
+# -----------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+.Trashes
+ehthumbs.db
+Thumbs.db
+._*
+
+# -----------------------------------------------------------------------------
+# Node.js (if any frontend components)
+# -----------------------------------------------------------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# -----------------------------------------------------------------------------
+# Python
+# -----------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+__pyinstaller__/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+*.egg-info/
+.installed.cfg
+*.egg
+
+MANIFEST
+
+# Virtual environments
+env/
+venv/
+ENV/
+.venv/
+
+# -----------------------------------------------------------------------------
+# Testing and Coverage
+# -----------------------------------------------------------------------------
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.pytest_cache/
+.mypy_cache/
+
+# -----------------------------------------------------------------------------
+# Logs and Temporary Files
+# -----------------------------------------------------------------------------
+*.log
+*.tmp
+*.temp
+.cache/
+.log.old
+core.*
+
+# -----------------------------------------------------------------------------
+# Docker Files
+# -----------------------------------------------------------------------------
+# docker-compose.yml is large, generated per deployment - DO NOT TRACK
+Dockerfile*
+docker-compose*.yml
+docker-compose*.yaml
+docker/*.yml
+docker/*.yaml
+
+# -----------------------------------------------------------------------------
+# Build Artifacts
+# -----------------------------------------------------------------------------
+*.tar
+*.tar.gz
+*.zip
+*.rar
+*.7z
+
+# -----------------------------------------------------------------------------
+# Local Configuration Overrides
+# -----------------------------------------------------------------------------
+.docker/
+
+# -----------------------------------------------------------------------------
+# Backup Files
+# -----------------------------------------------------------------------------
+*.bak
+*.backup
+*.old
+*.orig
+*~
+
+# -----------------------------------------------------------------------------
+# Script Output and Generated Files
+# -----------------------------------------------------------------------------
+*.out
+*.output
+*.result
+*.report
+
+# -----------------------------------------------------------------------------
+# Local Development Overrides
+# -----------------------------------------------------------------------------
+local.env
+override.env
+development.env
+
+# =============================================================================
+# Exceptions: Files that SHOULD be included
+# These lines MUST start with ! and have NO leading whitespace
+# =============================================================================
+!config/runtime.yaml
+!config/gateway.yaml
+!agents/*/config.yaml
+!agents/*/config.yml
+!entrypoint.sh
+!lib/common.sh
+!plugins/*/plugin.yaml
+!plugins/*/plugin.yml
+!Dockerfile

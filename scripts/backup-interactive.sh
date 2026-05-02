@@ -268,6 +268,7 @@ while [[ $# -gt 0 ]]; do
         # Standard options
         --dry-run) DRY_RUN=true; shift;;
         --quiet) QUIET=true; shift;;
+        --version|-V) echo "Interactive Backup Protocol v1.0.0 (Hemlock Enterprise Agent Framework)"; exit 0;;
         --help|-h) usage;;
         *)
             if [[ -z "$COMMAND" ]]; then COMMAND="$1"; fi; shift;;

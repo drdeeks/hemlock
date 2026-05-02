@@ -106,14 +106,8 @@ mkdir -p "$AGENTS_DIR/$TEST_AGENT/data" \
          "$AGENTS_DIR/$TEST_AGENT/skills" \
          "$AGENTS_DIR/$TEST_AGENT/tools"
 cp -ra "$TEST_SOURCE_DIR/." "$AGENTS_DIR/$TEST_AGENT/" 2>/dev/null || true
-# Create config.yaml if not present
 if [[ ! -f "$AGENTS_DIR/$TEST_AGENT/config.yaml" ]]; then
-    cat > "$AGENTS_DIR/$TEST_AGENT/config.yaml" <<EOL
-agent:
-  id: $TEST_AGENT
-  name: Hidden Files Test Agent
-  model: nous/mistral-large
-EOL
+    printf "agent:\n  id: %s\n  name: Hidden Files Test Agent\n  model: nous/mistral-large\n" "$TEST_AGENT" > "$AGENTS_DIR/$TEST_AGENT/config.yaml"
 fi
 if [[ -d "$RUNTIME_ROOT/agents/$TEST_AGENT" ]] && \
    [[ -f "$RUNTIME_ROOT/agents/$TEST_AGENT/.env.enc" ]] && \
