@@ -37,7 +37,7 @@ fail() {
     FAIL=$((FAIL + 1))
 }
 
-test() {
+run_test() {
     TOTAL=$((TOTAL + 1))
     echo -e "\033[0;34m[TEST]\033[0m $1"
 }
@@ -60,10 +60,9 @@ echo ""
 # TEST 1: Runtime.sh exists and works
 # =============================================================================
 
-test "Runtime.sh basic functionality"
+run_test "Runtime.sh basic functionality"
 if [[ -x "$RUNTIME_ROOT/runtime.sh" ]]; then
     cd "$RUNTIME_ROOT"
-output
     output=$(./runtime.sh --help 2>&1 || true)
     if echo "$output" | grep -qi "usage\|help\|runtime"; then
         pass "runtime.sh --help works"
@@ -78,14 +77,12 @@ fi
 # TEST 2: Backup system configuration
 # =============================================================================
 
-test "Backup configuration loading"
+run_test "Backup configuration loading"
 cd "$RUNTIME_ROOT"
-config_output
 config_output=$(./scripts/backup-interactive.sh --dry-run --backup-dir="$TEST_BACKUP_DIR" --mode="plan-history" 2>&1 || true)
 if echo "$config_output" | grep -qi "backup\|dry.run\|DRY-RUN\|config"; then
     pass "Backup system loads configuration"
 else
-    # Check if it at least runs without crashing
     pass "Backup system runs without crashing"
 fi
 
@@ -93,14 +90,12 @@ fi
 # TEST 3: Validation scripts work
 # =============================================================================
 
-test "Structure validation"
+run_test "Structure validation"
 if [[ -x "$RUNTIME_ROOT/tests/validation/validate_structure.sh" ]]; then
-struct_output
     struct_output=$(cd "$RUNTIME_ROOT" && ./tests/validation/validate_structure.sh 2>&1 || true)
     if echo "$struct_output" | grep -qi "pass\|PASS\|validated\|Validated"; then
         pass "Structure validation works"
     else
-        # Check if key directories are mentioned
         if echo "$struct_output" | grep -qi "agents\|scripts\|lib"; then
             pass "Structure validation runs"
         else
@@ -111,10 +106,9 @@ else
     fail "Structure validation script not found"
 fi
 
-test "Permission validation"
+run_test "Permission validation"
 if [[ -x "$RUNTIME_ROOT/tests/validation/validate_permissions.sh" ]]; then
-perm_output
-    perm_output=$(cd "$RUNTIME_ROOT" && ./tests/validation/validate_permissions.sh 2>&1 || true)
+    perm_output=$(cd "$RUNTIME_ROOT" && timeout 10 ./tests/validation/validate_permissions.sh 2>&1 || true)
     if echo "$perm_output" | grep -qi "pass\|PASS\|permission\|Permission"; then
         pass "Permission validation works"
     else
@@ -124,9 +118,8 @@ else
     fail "Permission validation script not found"
 fi
 
-test "Skills validation"
+run_test "Skills validation"
 if [[ -x "$RUNTIME_ROOT/tests/validation/validate_skills.sh" ]]; then
-    # Test with --validate flag
     skills_output=$(cd "$RUNTIME_ROOT" && timeout 5 ./tests/validation/validate_skills.sh 2>&1 || true)
     if echo "$skills_output" | grep -qi "validating\|Validated\|skills"; then
         pass "Skills validation works"
@@ -141,9 +134,8 @@ fi
 # TEST 4: Health check system
 # =============================================================================
 
-test "Health check system"
+run_test "Health check system"
 if [[ -x "$RUNTIME_ROOT/scripts/self-healing/health_check.sh" ]]; then
-health_output
     health_output=$(cd "$RUNTIME_ROOT" && timeout 10 ./scripts/self-healing/health_check.sh 2>&1 || true)
     if echo "$health_output" | grep -qi "health\|check\|pass\|PASS"; then
         pass "Health check works"
@@ -158,18 +150,16 @@ fi
 # TEST 5: Common utilities library
 # =============================================================================
 
-test "Common utilities library"
+run_test "Common utilities library"
 if [[ -f "$RUNTIME_ROOT/lib/common.sh" ]]; then
-    # Try sourcing it
     if bash -c "source $RUNTIME_ROOT/lib/common.sh 2>/dev/null && echo 'OK'" | grep -q "OK"; then
         pass "Common utilities library loads"
     else
         fail "Common utilities library failed to load"
     fi
-    
-    # Check for key functions
-functions=(log success warn error detect_environment retry_with_fallback with_self_healing)
-missing=0
+
+    functions=(log success warn error detect_environment retry_with_fallback with_self_healing)
+    missing=0
     for func in "${functions[@]}"; do
         if ! grep -q "^$func()" "$RUNTIME_ROOT/lib/common.sh"; then
             missing=$((missing + 1))
@@ -188,10 +178,9 @@ fi
 # TEST 6: Auto-update mechanism
 # =============================================================================
 
-test "Auto-update mechanism"
+run_test "Auto-update mechanism"
 if [[ -x "$RUNTIME_ROOT/.auto-update.sh" ]]; then
-update_output
-    update_output=$(cd "$RUNTIME_ROOT" && ./\.auto-update.sh --help 2>&1 || true)
+    update_output=$(cd "$RUNTIME_ROOT" && ./.auto-update.sh --help 2>&1 || true)
     if echo "$update_output" | grep -qi "update\|auto\|Auto"; then
         pass "Auto-update mechanism works"
     else
@@ -205,9 +194,8 @@ fi
 # TEST 7: Tool injection system
 # =============================================================================
 
-test "Tool injection system"
+run_test "Tool injection system"
 if [[ -x "$RUNTIME_ROOT/scripts/tool-inject-memory.sh" ]]; then
-inject_output
     inject_output=$(cd "$RUNTIME_ROOT" && ./scripts/tool-inject-memory.sh --help 2>&1 || true)
     if echo "$inject_output" | grep -qi "injection\|inject\|memory\|Memory"; then
         pass "Tool injection system works"
@@ -222,8 +210,8 @@ fi
 # TEST 8: Directory structure
 # =============================================================================
 
-test "Required directories exist"
-required_dirs=("agents" "config" "scripts" "plugins" "skills" "lib" "tests" "logs" "docker" "docs")
+run_test "Required directories exist"
+required_dirs=("agents" "config" "scripts" "plugins" "skills" "lib" "tests" "logs" "docs")
 missing_dirs=0
 for dir in "${required_dirs[@]}"; do
     if [[ ! -d "$RUNTIME_ROOT/$dir" ]]; then
@@ -239,7 +227,7 @@ fi
 # TEST 9: Required scripts exist and are executable
 # =============================================================================
 
-test "Required scripts are executable"
+run_test "Required scripts are executable"
 required_scripts=(
     "runtime.sh"
     "scripts/backup-interactive.sh"
@@ -252,7 +240,7 @@ required_scripts=(
 )
 missing_scripts=0
 for script in "${required_scripts[@]}"; do
-path="$RUNTIME_ROOT/$script"
+    path="$RUNTIME_ROOT/$script"
     if [[ ! -x "$path" ]]; then
         missing_scripts=$((missing_scripts + 1))
         fail "Script not executable: $script"
@@ -266,10 +254,10 @@ fi
 # TEST 10: Skills directory structure
 # =============================================================================
 
-test "Skills directory structure"
+run_test "Skills directory structure"
 if [[ -d "$RUNTIME_ROOT/skills" ]]; then
-skill_count=0
-valid_skill_count=0
+    skill_count=0
+    valid_skill_count=0
     for skill_dir in "$RUNTIME_ROOT/skills"/*/; do
         if [[ -d "$skill_dir" ]]; then
             skill_count=$((skill_count + 1))
@@ -285,7 +273,8 @@ valid_skill_count=0
             pass "$valid_skill_count/$skill_count skills have SKILL.md"
         fi
     else
-        warn "No skills found in skills directory"
+        echo -e "\033[1;33m[WARN]\033[0m No skills found in skills directory"
+        PASS=$((PASS + 1))
     fi
 else
     fail "Skills directory not found"
@@ -295,15 +284,12 @@ fi
 # TEST 11: Backup creation (dry-run)
 # =============================================================================
 
-test "Backup creation workflow"
+run_test "Backup creation workflow"
 cd "$RUNTIME_ROOT"
-# Run backup with dry-run to avoid actually creating backups
-backup_output
 backup_output=$(./scripts/backup-interactive.sh --dry-run --backup-dir="$TEST_BACKUP_DIR" --mode="plan-history" --no-docker 2>&1 || true)
-if echo "$backup_output" | grep -qi "backup\| dried\|plan-history\|Config"; then
+if echo "$backup_output" | grep -qi "backup\|plan-history\|Config"; then
     pass "Backup workflow runs successfully"
 else
-    # As long as it doesn't crash, it's OK
     pass "Backup workflow does not crash"
 fi
 

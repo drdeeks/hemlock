@@ -180,8 +180,8 @@ EOF
     fi
     
     if [[ -d "$RUNTIME_ROOT/scripts" ]]; then
-        chmod 700 "$RUNTIME_ROOT/scripts"/*.sh 2>/dev/null
-        log_fix "Fixed permissions: scripts/*.sh (700)"
+        chmod 755 "$RUNTIME_ROOT/scripts"/*.sh 2>/dev/null
+        log_fix "Fixed permissions: scripts/*.sh (755)"
         fixed=$((fixed + 1))
     fi
     

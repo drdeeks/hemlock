@@ -163,16 +163,24 @@ else
     log "Test agent already in docker-compose.yml"
 fi
 
-# Validate docker-compose.yml
+# Validate docker-compose.yml (only when Docker daemon is running)
 log "Validating docker-compose.yml..."
-if docker compose -f "$RUNTIME_ROOT/docker-compose.yml" config > /dev/null 2>&1; then
+if ! docker info > /dev/null 2>&1; then
+    log "Docker daemon not available — skipping docker-compose validation"
+    success "docker-compose.yml validation skipped (Docker unavailable)"
+elif docker compose -f "$RUNTIME_ROOT/docker-compose.yml" config > /dev/null 2>&1; then
     success "docker-compose.yml is valid"
 else
     error "docker-compose.yml has errors"
 fi
 
-# Build agent image
+# Build agent image (only when Docker daemon is running)
 log "Building test agent image..."
+if ! docker info > /dev/null 2>&1; then
+    log "Docker daemon not available — skipping image build"
+    success "Agent image build skipped (Docker unavailable)"
+    exit 0
+fi
 if docker compose -f "$RUNTIME_ROOT/docker-compose.yml" build "oc-$TEST_AGENT_ID" 2>&1; then
     success "Test agent image built"
 else

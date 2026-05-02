@@ -2,331 +2,188 @@
 
 ## Overview
 
-This directory contains comprehensive tests for the Hemlock Enterprise Framework, covering:
+This directory contains a comprehensive test suite for the Hemlock Enterprise Framework, covering:
 - Agent lifecycle management (create, import, export, delete)
 - Hidden files/directories support
-- Docker build and deployment validation
-- Runtime functionality
-- Self-healing and health checks
+- Runtime command validation
+- Common library unit tests
+- Configuration validation
+- Cross-script integration
+- Self-healing mechanisms
+- Memory injection workflows
 
 ## Directory Structure
 
 ```
 tests/
-├── e2e/                           # End-to-end workflow tests
-│   ├── run_tests.sh               # E2E test runner
-│   ├── test_agent.sh              # Agent creation and management tests
-│   ├── test_complete_workflow.sh  # Complete backup/restore/validation workflow
-│   ├── test_hidden_files.sh       # Hidden files preservation tests (NEW)
-│   └── TESTING_REPORT.md          # Test reports and results
+├── run_all.sh                          # Master test runner (all categories)
 │
-├── integration/                   # Component interaction tests
-│   └── test_backup_system.sh      # Backup system integration tests
+├── validation/                         # Fast structural validation tests
+│   ├── validate_structure.sh           # Project directory/file structure
+│   ├── validate_permissions.sh         # File permission standards (auto-fixes 700)
+│   └── validate_skills.sh             # Skills library validation (289+ skills)
 │
-├── unit/                          # Isolated component tests
-│   ├── tmp_test_write.txt
-│   ├── tmp_writable/
-│   └── test_delete_agent.sh       # Agent delete functionality tests (NEW)
+├── unit/                               # Isolated component unit tests
+│   ├── test_delete_agent.sh            # Agent deletion (runtime.sh + agent-delete.sh)
+│   ├── test_agent_create.sh            # Agent create / import / export (NEW)
+│   ├── test_common_lib.sh              # lib/common.sh full function coverage (NEW)
+│   └── test_runtime_commands.sh        # runtime.sh command coverage (NEW)
 │
-├── validation/                    # Structure and compliance tests
-│   ├── validate_permissions.sh    # File permission validation
-│   ├── validate_skills.sh          # Skills directory validation
-│   └── validate_structure.sh      # Directory structure validation
+├── integration/                        # Component interaction tests
+│   ├── test_backup_system.sh           # backup-interactive.sh ↔ runtime.sh
+│   ├── test_agent_lifecycle.sh         # Create→list→import→export→delete cycle (NEW)
+│   ├── test_config_validation.sh       # Config files (runtime.yaml, gateway.yaml) (NEW)
+│   └── test_script_interactions.sh     # Cross-script dependencies (NEW)
 │
-├── run_all.sh                    # Master test runner
-└── README.md                      # This file
+└── e2e/                                # End-to-end workflow tests
+    ├── test_complete_workflow.sh        # Full backup/restore/validation workflow
+    ├── test_hidden_files.sh            # Hidden file preservation (import/export/delete)
+    ├── test_self_healing.sh            # Self-healing mechanisms (NEW)
+    ├── test_memory_injection.sh        # Memory injection workflow (NEW)
+    ├── enforce_100_percent.sh          # 100% pass enforcement
+    ├── run_tests.sh                    # E2E-specific runner
+    ├── test_agent.sh                   # Agent creation setup
+    └── TESTING_REPORT.md               # Historical test reports
 ```
 
-## New Tests Added
-
-### 1. Hidden Files Support Tests (`tests/e2e/test_hidden_files.sh`)
-Tests that hidden files and directories (`.secrets/`, `.hermes/`, `.archive/`, `.backups/`, `.env.enc`) are:
-- Preserved during agent import
-- Preserved during agent export
-- Deleted during agent deletion
-- Listed correctly in agent listings
-
-**Test Cases:**
-- Test source directory has hidden files
-- Import agent preserves hidden files
-- Hidden file contents preserved
-- Delete agent with hidden files
-- Export agent preserves hidden files
-- List agents shows imported agent
-
-### 2. Delete Agent Functionality (`tests/unit/test_delete_agent.sh`)
-Tests the complete agent deletion workflow:
-- Delete via `runtime.sh delete-agent` with `--force` flag
-- Error handling for nonexistent agents
-- Interactive confirmation skipping with `--force`
-- Non-interactive mode behavior
-- Runtime.log cleanup
-
-**Test Cases:**
-- Create test agent with standard structure
-- delete-agent.sh script exists and is executable
-- Delete agent via runtime.sh with --force flag
-- Delete nonexistent agent returns error
-- --force flag skips confirmation prompt
-- Delete agent without --force shows confirmation prompt
-- Delete removes entries from runtime.log
+---
 
 ## Running Tests
 
-### Run All Tests
-
+### Run All Tests (all categories)
 ```bash
-# From project root
 ./tests/run_all.sh
-
-# With specific category
-./tests/run_all.sh validation
-./tests/run_all.sh unit
-./tests/run_all.sh e2e
-./tests/run_all.sh integration
-
-# With specific test file
-./tests/run_all.sh e2e test_hidden_files.sh
 ```
 
-### Run Individual Test Suites
-
+### Run by Category
 ```bash
-# Hidden Files E2E Tests
-./tests/e2e/test_hidden_files.sh
-
-# Delete Agent Unit Tests
-./tests/unit/test_delete_agent.sh
-
-# Complete Workflow E2E Tests
-./tests/e2e/test_complete_workflow.sh
-
-# Validation Tests
-./tests/validation/validate_structure.sh
-./tests/validation/validate_permissions.sh
-./tests/validation/validate_skills.sh
-
-# Integration Tests
-./tests/integration/test_backup_system.sh
+./tests/run_all.sh validation       # Fast structural checks (~2s)
+./tests/run_all.sh unit             # Unit tests (~10s)
+./tests/run_all.sh integration      # Integration tests (~15s)
+./tests/run_all.sh e2e              # End-to-end tests (~30s)
 ```
 
-### Run with Verbose Output
-
+### Run a Specific Test File
 ```bash
-# Most test scripts support verbose output
-bash -x ./tests/e2e/test_hidden_files.sh
+./tests/run_all.sh unit tests/unit/test_common_lib.sh
+bash tests/unit/test_common_lib.sh
+bash tests/integration/test_agent_lifecycle.sh
 ```
 
-## Docker Build Tests
+---
 
-### Verify Docker Build Context
+## Test Categories
 
-```bash
-# Test that docker-compose.yml is accessible in build context
-docker build -f /tmp/test_dockerfile - . 2>&1 | grep docker-compose
+### Validation Tests
+Fast checks that verify the project structure is intact. Run these first to catch
+configuration drift.
 
-# Quick validation without full build
-cat > /tmp/quick_test.dockerfile << 'EOF'
-FROM scratch
-COPY docker-compose.yml /tmp/
-COPY agents/ /tmp/agents/
-EOF
-docker build -f /tmp/quick_test.dockerfile . 2>&1
+| Script | What it tests |
+|--------|--------------|
+| `validate_structure.sh` | Required dirs, scripts, lib files, agent configs |
+| `validate_permissions.sh` | No 700 perms, scripts executable, configs readable |
+| `validate_skills.sh` | 289+ skills have SKILL.md with required sections |
+
+### Unit Tests
+Isolated tests for individual scripts and libraries.
+
+| Script | What it tests |
+|--------|--------------|
+| `test_common_lib.sh` | 15 tests: all lib/common.sh functions (log, safe_mkdir, atomic_write, safe_chmod, validate_permission, retry_with_fallback, with_self_healing, detect_environment, etc.) |
+| `test_runtime_commands.sh` | 12 tests: runtime.sh --help, list-agents, status, self-check, list-plugins, list-crews, backup-status, unknown commands |
+| `test_agent_create.sh` | 12 tests: agent-create.sh, agent-import.sh, agent-export.sh, agent-delete.sh, import/export roundtrip |
+| `test_delete_agent.sh` | 7 tests: delete via runtime.sh, --force flag, nonexistent agent handling, runtime.log cleanup |
+
+### Integration Tests
+Tests that verify multiple scripts work together correctly.
+
+| Script | What it tests |
+|--------|--------------|
+| `test_backup_system.sh` | 10 tests: backup-interactive.sh ↔ runtime.sh, --help/--version/--dry-run, required scripts |
+| `test_agent_lifecycle.sh` | 14 tests: full create→import→list→export→delete cycle + hidden files + idempotency |
+| `test_config_validation.sh` | 14 tests: runtime.yaml, gateway.yaml, .env.template, agent configs, Makefile targets, YAML syntax |
+| `test_script_interactions.sh` | 12 tests: runtime.sh↔common.sh, runtime.sh↔backup, runtime.sh↔health, runtime.sh↔inject-memory |
+
+### E2E Tests
+End-to-end tests that exercise complete user-facing workflows.
+
+| Script | What it tests |
+|--------|--------------|
+| `test_complete_workflow.sh` | 11 tests: full backup/validate/health-check workflow |
+| `test_hidden_files.sh` | 6 tests: hidden file preservation (.secrets, .archive, .backups, .hermes, .env.enc) |
+| `test_self_healing.sh` | 11 tests: health_check.sh, fix_permissions, safe_mkdir, with_self_healing retry, .auto-update.sh.backup removed |
+| `test_memory_injection.sh` | 10 tests: SOUL/USER/IDENTITY/MEMORY/AGENTS injection, inject-all-memory, memory.sh |
+
+---
+
+## Test Design Principles
+
+1. **Isolated**: Each test creates its own temp directories (`/tmp/`) and cleans up via `trap … EXIT`
+2. **Idempotent**: Tests can be run multiple times without side effects
+3. **Self-describing**: Every test prints `[TEST] description` before running
+4. **Non-destructive**: Tests use `--dry-run`, `--force`, and temp dirs to avoid modifying production data
+5. **RUNTIME_ROOT aware**: All tests auto-detect the framework root by walking up until `runtime.sh` is found
+6. **No Docker required**: All tests are designed to pass without a running Docker daemon
+
+---
+
+## Test Results Format
+
+```
+[TEST] Description of what is being tested
+[PASS] What passed ✓
+[FAIL] What failed ✗  (to stderr)
+[WARN] Non-fatal warning
+
+========================================
+Test Summary
+========================================
+Total Tests: N
+Passed:      N
+Failed:      N
+Time:        Xs
 ```
 
-### Full Framework Build
+---
 
-```bash
-# This will take several minutes
-make build-framework
+## Adding New Tests
 
-# Or with docker build directly
-cd /home/ubuntu/projects/hemlock
-docker build -t openclaw/enterprise-framework:test -f Dockerfile .
-```
+1. Create `tests/<category>/test_<name>.sh`
+2. Make executable: `chmod +x tests/<category>/test_<name>.sh`
+3. Use the standard header:
+   ```bash
+   #!/bin/bash
+   set -uo pipefail
+   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+   RUNTIME_ROOT="$SCRIPT_DIR"
+   while [[ "$RUNTIME_ROOT" != "/" && ! -f "$RUNTIME_ROOT/runtime.sh" ]]; do
+       RUNTIME_ROOT="$(dirname "$RUNTIME_ROOT")"
+   done
+   ```
+4. Use `pass()`, `fail()`, `run_test()` helpers
+5. Add cleanup via `trap cleanup EXIT`
+6. Exit 0 on all pass, exit 1 on any fail
 
-## Test Environment Setup
+The `run_all.sh` runner auto-discovers all `.sh` files in each category directory.
 
-### Prerequisites
-
-- Bash 4.0+
-- Docker 20.10+
-- Python 3.6+
-- Standard Unix utilities (grep, sed, awk, find, etc.)
-
-### Test Data
-
-Tests use temporary directories that are automatically cleaned up:
-- `/tmp/test_hidden_source_*` - Source for hidden files tests
-- `/tmp/test_hidden_export_*` - Export destination for hidden files tests
-- `/tmp/e2e_workflow_test_*` - Workflow test directories
-
-## Expected Results
-
-All tests should pass with:
-- ✅ Green `[PASS]`output for successful tests
-- ❌ Red `[FAIL]` output for failed tests
-- Summary showing total/passed/failed counts
-
-### Sample Output
-
-```
-==========================================
-E2E Test: Hidden Files Support
-==========================================
-Test Agent: test-hidden-agent-12345
-Source Dir: /tmp/test_hidden_source_12345
-
-[TEST] Test source directory has hidden files
-[PASS] Test source has all hidden files/directories
-[TEST] Import agent preserves hidden files
-[PASS] Agent import preserved all hidden files/directories
-[TEST] Hidden file contents preserved
-[PASS] All hidden file contents preserved correctly
-[TEST] Delete agent with hidden files
-[PASS] Agent with hidden files deleted successfully
-[TEST] Export agent preserves hidden files
-[PASS] Agent export preserved all hidden files/directories
-[TEST] List agents shows imported agent
-[PASS] List agents shows agent with hidden files
-
-==========================================
-Hidden Files Test Summary
-==========================================
-Total Tests: 6
-Passed: 6
-Failed: 0
-Time: 12s
-
-All Hidden Files tests passed in 12s!
-```
-
-## Continuous Integration
-
-For CI/CD pipelines, run:
-
-```bash
-#!/bin/bash
-set -e
-
-# Clone the repository
-cd /home/ubuntu/projects/hemlock
-
-# Run all validation tests (fastest)
-./tests/validation/validate_structure.sh
-./tests/validation/validate_permissions.sh
-
-# Run unit tests
-./tests/unit/test_delete_agent.sh
-
-# Run E2E tests
-./tests/e2e/test_hidden_files.sh
-# ./tests/e2e/test_complete_workflow.sh  # Longer running
-
-# Build Docker image (remove for PR testing to save time)
-# make build-framework
-```
+---
 
 ## Troubleshooting
 
-### Common Issues
+### "runtime.sh not found"
+Run tests from the repository root: `cd /path/to/hemlock && ./tests/run_all.sh`
 
-1. **"./runtime.sh: Permission denied"**
-   ```bash
-   chmod +x runtime.sh
-   chmod +x scripts/*.sh
-   chmod +x tests/**/*.sh
-   ```
-
-2. **"docker-compose.yml not found in build context"**
-   ```bash
-   # Ensure .dockerignore has exceptions
-   grep -q "!docker-compose.yml" .dockerignore || echo "!docker-compose.yml" >> .dockerignore
-   grep -q "!Dockerfile" .dockerignore || echo "!Dockerfile" >> .dockerignore
-   ```
-
-3. **Hidden files not being imported**
-   ```bash
-   # Ensure agent-import.sh uses cp -ra with ./
-   grep -q 'cp -ra "$SOURCE/\." "$AGENTS_DIR/$TARGET/"' scripts/agent-import.sh
-   ```
-
-4. **Tests failing due to missing dependencies**
-   ```bash
-   # Install required tools
-   apt-get update && apt-get install -y curl git jq python3 docker.io
-   ```
-
-### Debug Mode
-
+### Permission errors
+The validation tests auto-fix 700 permissions. If you see errors, run:
 ```bash
-# Run tests with debugging
-bash -x ./tests/e2e/test_hidden_files.sh
-
-# Or set DEBUG environment variable
-DEBUG=1 ./tests/run_all.sh
+./tests/validation/validate_permissions.sh
 ```
 
-## Test Coverage
-
-| Component | Tests | Status |
-|-----------|-------|--------|
-| Agent Import | Hidden files, standard structure | ✅ Covered |
-| Agent Export | Hidden files, configuration | ✅ Covered |
-| Agent Delete | --force flag, confirmation, cleanup | ✅ Covered |
-| Agent List | Agent visibility | ✅ Covered |
-| Docker Build | Context, docker-compose.yml | ✅ Covered |
-| Runtime | --help, commands | ✅ Covered |
-| Backup | Dry-run, configuration | ✅ Covered |
-| Health Check | System status | ✅ Covered |
-| Validation | Structure, permissions, skills | ✅ Covered |
-
-## Contributing
-
-When adding new tests:
-
-1. Follow existing naming conventions (`test_<component>.sh`)
-2. Use consistent pass/fail/test functions
-3. Add cleanup with `trap` for temporary files
-4. Test both success and failure cases
-5. Update this documentation
-
-### Test Template
-
+### Tests leave artifacts
+If a test is interrupted (Ctrl+C), temp dirs under `/tmp/` may remain. Clean with:
 ```bash
-#!/bin/bash
-# Test: <Component> - <Feature>
-
-set -uo pipefail
-
-# Setup
-PASS=0; FAIL=0; TOTAL=0
-
-pass() { echo "[PASS] $1"; PASS=$((PASS+1)); }
-fail() { echo "[FAIL] $1"; FAIL=$((FAIL+1)); }
-test() { echo "[TEST] $1"; TOTAL=$((TOTAL+1)); }
-
-# Run tests
-test "Description of test"
-# ... test logic ...
-pass "Test passed" || fail "Test failed"
-
-# Summary
-echo "Passed: $PASS / $TOTAL"
-[[ $FAIL -eq 0 ]] && exit 0 || exit 1
+rm -rf /tmp/e2e_* /tmp/lifecycle_* /tmp/mem_* /tmp/self_heal_* /tmp/common_lib_* /tmp/create_* /tmp/script_*
 ```
 
-## Recent Improvements
-
-### v1.0.0
-- Added hidden files support tests
-- Added delete agent functionality tests
-- Updated test runner to support category filtering
-- Added error handling and cleanup in tests
-- Improved test output formatting
-
-### Changes from Previous Version
-- Fixed tests to handle missing directories gracefully
-- Added timeout handling for long-running operations
-- Improved test isolation with unique temporary directories
-- Added comprehensive error messages
+### Skills validation warnings
+Skills warnings (missing optional sections) do not cause test failures — only errors do.
