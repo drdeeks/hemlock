@@ -30,6 +30,52 @@ if [[ -f "$RUNTIME_ROOT/lib/common.sh" ]]; then
 fi
 
 # =============================================================================
+# FIRST-RUN INITIALIZATION
+# =============================================================================
+FIRST_RUN_FLAG="$RUNTIME_ROOT/.cache/.first_run_completed"
+
+# Check if first-run initialization is needed
+is_first_run() {
+    if [[ ! -f "$FIRST_RUN_FLAG" ]]; then
+        return 0
+    fi
+    return 1
+}
+
+# Check if system is already initialized with default model
+is_initialized() {
+    # Check if default model exists
+    if [[ -f "$RUNTIME_ROOT/models/gguf/qwen3-0_6b-Q4_K_M.gguf" ]] || \
+       [[ -f "$RUNTIME_ROOT/models/gguf/qwen3-0_6b-Q4_K_M.gguf" ]]; then
+        return 0
+    fi
+    
+    # Check if first run flag exists
+    if [[ -f "$FIRST_RUN_FLAG" ]]; then
+        return 0
+    fi
+    
+    return 1
+}
+
+# Run first-run initialization
+run_first_run_initialization() {
+    local first_run_script="$SCRIPTS_DIR/system/first-run.sh"
+    
+    if [[ -f "$first_run_script" ]]; then
+        log "Running first-run initialization..."
+        log "This will setup Qwen3:0.6B as default model with Llama.cpp"
+        echo ""
+        bash "$first_run_script" full
+        echo ""
+    else
+        warn "First-run script not found at $first_run_script"
+        warn "Falling back to basic setup..."
+        setup_system
+    fi
+}
+
+# =============================================================================
 # USAGE
 # =============================================================================
 
@@ -67,7 +113,8 @@ ${BLUE}Commands:${NC}
   inject-all-memory     Inject memory for all agents
   
   # System
-  setup                 First-time setup
+  setup                 Basic system setup (legacy)
+  initialize            First-time initialization (Qwen3:0.6B + Llama.cpp)
   update                Update all agents and crews
   status                Show system status
   self-check            Run system diagnostics
@@ -1054,6 +1101,10 @@ while [[ $# -gt 0 ]]; do
             COMMAND="setup"
             shift
             ;;
+        initialize)
+            COMMAND="initialize"
+            shift
+            ;;
         update)
             COMMAND="update"
             shift
@@ -1094,6 +1145,24 @@ done
 
 case "$COMMAND" in
     "")
+        # Check if first run and suggest initialization
+        if $(is_first_run) && ! $(is_initialized); then
+            echo ""
+            log "${YELLOW}=============================================================================${NC}"
+            log "${YELLOW}  Hemlock Enterprise - First Run Detected                              ${NC}"
+            log "${YELLOW}=============================================================================${NC}"
+            echo ""
+            log "Run the following command to initialize the system with Qwen3:0.6B:"
+            log "  $0 initialize"
+            echo ""
+            log "This will:"
+            log "  1. Scan system hardware"
+            log "  2. Build Llama.cpp with optimal backend"
+            log "  3. Download and convert Qwen3:0.6B model"
+            log "  4. Configure as default active agent"
+            log "  5. Create helper agent"
+            echo ""
+        fi
         usage
         ;;
     create-agents|create-agents-from-plugin)
@@ -1146,7 +1215,15 @@ case "$COMMAND" in
         inject_all_memory "$@"
         ;;
     setup)
-        setup_system
+        # Legacy setup - now redirects to initialize for full setup
+        if $(is_first_run); then
+            run_first_run_initialization
+        else
+            setup_system
+        fi
+        ;;
+    initialize)
+        run_first_run_initialization
         ;;
     update)
         update_system
