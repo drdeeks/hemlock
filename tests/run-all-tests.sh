@@ -34,49 +34,105 @@ SECURITY_TESTS_DIR="$TESTS_DIR/security"
 PERFORMANCE_TESTS_DIR="$TESTS_DIR/performance"
 E2E_TESTS_DIR="$TESTS_DIR/e2e"
 
-# Test files array
-TEST_FILES=(
-    # Unit tests
+# Discover test files dynamically
+# Unit tests - existing files
+UNIT_TEST_FILES=(
+    "$UNIT_TESTS_DIR/test_delete_agent.sh"
     "$UNIT_TESTS_DIR/test_hardware-scanner.sh"
     "$UNIT_TESTS_DIR/test_llama-build.sh"
-    "$UNIT_TESTS_DIR/test_model-manager.sh"
-    "$UNIT_TESTS_DIR/test_first-run.sh"
-    "$UNIT_TESTS_DIR/test_agent-create.sh"
-    "$UNIT_TESTS_DIR/test_agent-delete.sh"
-    "$UNIT_TESTS_DIR/test_agent-import.sh"
-    "$UNIT_TESTS_DIR/test_agent-export.sh"
-    "$UNIT_TESTS_DIR/test_crew-create.sh"
-    "$UNIT_TESTS_DIR/test_docs-indexer.sh"
-    "$UNIT_TESTS_DIR/test_backup-interactive.sh"
-    "$UNIT_TESTS_DIR/test_tool-inject-memory.sh"
-    
-    # Integration tests
-    "$INTEGRATION_TESTS_DIR/test_agent-lifecycle.sh"
-    "$INTEGRATION_TESTS_DIR/test_crew-lifecycle.sh"
-    "$INTEGRATION_TESTS_DIR/test_framework-baseline.sh"
-    "$INTEGRATION_TESTS_DIR/test_docker-management.sh"
-    "$INTEGRATION_TESTS_DIR/test_hidden-files.sh"
-    "$INTEGRATION_TESTS_DIR/test_consistency-checks.sh"
-    "$INTEGRATION_TESTS_DIR/test_crew-workflow.sh"
-    "$INTEGRATION_TESTS_DIR/test_model-conversion.sh"
-    "$INTEGRATION_TESTS_DIR/test_backup-restore.sh"
-    "$INTEGRATION_TESTS_DIR/test_memory-injection.sh"
-    
-    # Security tests
-    "$SECURITY_TESTS_DIR/test_secrets-management.sh"
-    "$SECURITY_TESTS_DIR/test_hidden-files.sh"
-    "$SECURITY_TESTS_DIR/test_container-security.sh"
-    
-    # Performance tests
-    "$PERFORMANCE_TESTS_DIR/test_model-loading.sh"
-    "$PERFORMANCE_TESTS_DIR/test_agent-response-time.sh"
-    
-    # End-to-end tests
-    "$E2E_TESTS_DIR/test_full-workflow.sh"
-    "$E2E_TESTS_DIR/test_system-initialization.sh"
-    "$E2E_TESTS_DIR/test_agent-deployment.sh"
-    "$E2E_TESTS_DIR/test_crew-execution.sh"
 )
+
+# Integration tests - existing files
+INTEGRATION_TEST_FILES=(
+    "$INTEGRATION_TESTS_DIR/test_agent-lifecycle.sh"
+    "$INTEGRATION_TESTS_DIR/test_backup_system.sh"
+    "$INTEGRATION_TESTS_DIR/test_consistency-checks.sh"
+    "$INTEGRATION_TESTS_DIR/test_crew-lifecycle.sh"
+    "$INTEGRATION_TESTS_DIR/test_docker-management.sh"
+    "$INTEGRATION_TESTS_DIR/test_framework-baseline.sh"
+    "$INTEGRATION_TESTS_DIR/test_hidden-files.sh"
+)
+
+# E2E tests - existing files
+E2E_TEST_FILES=(
+    "$E2E_TESTS_DIR/test_agent.sh"
+    "$E2E_TESTS_DIR/test_complete_workflow.sh"
+    "$E2E_TESTS_DIR/test_hidden_files.sh"
+    "$E2E_TESTS_DIR/run_tests.sh"
+    "$E2E_TESTS_DIR/enforce_100_percent.sh"
+)
+
+# Validation tests - existing files
+VALIDATION_TEST_FILES=(
+    "$TESTS_DIR/validation/validate_permissions.sh"
+    "$TESTS_DIR/validation/validate_skills.sh"
+    "$TESTS_DIR/validation/validate_structure.sh"
+)
+
+# Security tests directory
+SECURITY_TESTS_DIR="$TESTS_DIR/security"
+PERFORMANCE_TESTS_DIR="$TESTS_DIR/performance"
+
+# Build complete test list based on category
+build_test_list() {
+    local category="$1"
+    local -n test_list="$2"
+    test_list=()
+    
+    case "$category" in
+        unit)
+            for f in "${UNIT_TEST_FILES[@]}"; do
+                [[ -f "$f" ]] && test_list+=("$f")
+            done
+            ;;
+        integration)
+            for f in "${INTEGRATION_TEST_FILES[@]}"; do
+                [[ -f "$f" ]] && test_list+=("$f")
+            done
+            ;;
+        e2e)
+            for f in "${E2E_TEST_FILES[@]}"; do
+                [[ -f "$f" ]] && test_list+=("$f")
+            done
+            ;;
+        validation)
+            for f in "${VALIDATION_TEST_FILES[@]}"; do
+                [[ -f "$f" ]] && test_list+=("$f")
+            done
+            ;;
+        security)
+            if [[ -d "$SECURITY_TESTS_DIR" ]]; then
+                while IFS= read -r -d '' f; do
+                    [[ -f "$f" ]] && test_list+=("$f")
+                done < <(find "$SECURITY_TESTS_DIR" -maxdepth 1 -name '*.sh' -print0 2>/dev/null)
+            fi
+            ;;
+        performance)
+            if [[ -d "$PERFORMANCE_TESTS_DIR" ]]; then
+                while IFS= read -r -d '' f; do
+                    [[ -f "$f" ]] && test_list+=("$f")
+                done < <(find "$PERFORMANCE_TESTS_DIR" -maxdepth 1 -name '*.sh' -print0 2>/dev/null)
+            fi
+            ;;
+        all)
+            # Include all categories
+            for f in "${UNIT_TEST_FILES[@]}" "${INTEGRATION_TEST_FILES[@]}" "${E2E_TEST_FILES[@]}" "${VALIDATION_TEST_FILES[@]}"; do
+                [[ -f "$f" ]] && test_list+=("$f")
+            done
+            # Add security and performance if they exist
+            if [[ -d "$SECURITY_TESTS_DIR" ]]; then
+                while IFS= read -r -d '' f; do
+                    [[ -f "$f" ]] && test_list+=("$f")
+                done < <(find "$SECURITY_TESTS_DIR" -maxdepth 1 -name '*.sh' -print0 2>/dev/null)
+            fi
+            if [[ -d "$PERFORMANCE_TESTS_DIR" ]]; then
+                while IFS= read -r -d '' f; do
+                    [[ -f "$f" ]] && test_list+=("$f")
+                done < <(find "$PERFORMANCE_TESTS_DIR" -maxdepth 1 -name '*.sh' -print0 2>/dev/null)
+            fi
+            ;;
+    esac
+}
 
 # =============================================================================
 # Logging Functions
@@ -167,7 +223,7 @@ main() {
     
     # Validate category
     case "$category" in
-        unit|integration|security|performance|e2e|all)
+        unit|integration|security|performance|e2e|validation|all)
             # Valid category
             ;;
         *)
@@ -187,23 +243,18 @@ main() {
         echo ""
     fi
     
+    # Build test list based on category
+    local -a ACTUAL_TEST_FILES
+    build_test_list "$category" ACTUAL_TEST_FILES
+    
     # Run tests
     if [[ "$dry_run" == true ]]; then
         log "DRY RUN: Would run tests with category=$category"
         
         # Show which tests would be run
         log "Tests that would be run:"
-        for test_file in "${TEST_FILES[@]}"; do
-            # Check if test file exists
-            if [[ ! -f "$test_file" ]]; then
-                warn "Test file not found: $test_file"
-                continue
-            fi
-            
-            # Check category
-            if [[ "$category" == "all" ]] || [[ "$test_file" == *"$category"* ]]; then
-                log "  $test_file"
-            fi
+        for test_file in "${ACTUAL_TEST_FILES[@]}"; do
+            log "  $test_file"
         done
         
         exit 0
@@ -225,23 +276,10 @@ main() {
     local total_tests=0
     local passed_tests=0
     local failed_tests=0
+    local skipped_tests=0
     
     # Run each test file
-    for test_file in "${TEST_FILES[@]}"; do
-        # Check if test file exists
-        if [[ ! -f "$test_file" ]]; then
-            warn "Test file not found: $test_file"
-            continue
-        fi
-        
-        # Check category
-        if [[ "$category" != "all" ]] && [[ "$test_file" != *"$category"* ]]; then
-            if [[ "$verbose" == true ]]; then
-                log "Skipping test (category mismatch): $test_file"
-            fi
-            continue
-        fi
-        
+    for test_file in "${ACTUAL_TEST_FILES[@]}"; do
         # Run the test file
         if [[ "$verbose" == true ]]; then
             log "Running test: $test_file"
@@ -254,9 +292,10 @@ main() {
                 success "Test passed: $test_file"
             fi
         else
+            local exit_code=$?
             failed_tests=$((failed_tests + 1))
             if [[ "$quiet" == false ]]; then
-                error "Test failed: $test_file"
+                error "Test failed: $test_file (exit code: $exit_code)"
             fi
         fi
         
