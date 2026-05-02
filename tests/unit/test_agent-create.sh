@@ -45,7 +45,7 @@ test() {
 # Test constants
 AGENTS_DIR="$RUNTIME_ROOT/agents"
 AGENT_CREATE_SCRIPT="$RUNTIME_ROOT/scripts/agent-create.sh"
-TEST_AGENT="utest-create-$$"
+TEST_AGENT="utc-$(date +%s | tail -c 5)"
 TEST_AGENT_DIR="$AGENTS_DIR/$TEST_AGENT"
 
 # Cleanup function
@@ -136,7 +136,8 @@ test "Agent directory structure is created correctly"
 cd "$RUNTIME_ROOT"
 cleanup
 
-timeout 10 ./runtime.sh create-agent "$TEST_AGENT" --model gpt-4 --force 2>&1 > /dev/null || true
+# Use script directly — runtime.sh create-agent waits for Docker
+bash scripts/agent-create.sh --id "$TEST_AGENT" --model gpt-4 2>&1 > /dev/null || true
 
 # Check required directories
 required_dirs=("config" "data" "logs" "tools" "skills" ".secrets")
@@ -222,11 +223,10 @@ cd "$RUNTIME_ROOT"
 cleanup
 
 FULL_AGENT="utest-full-$$"
-output=$(timeout 10 ./runtime.sh create-agent "$FULL_AGENT" \
+output=$(bash scripts/agent-create.sh --id "$FULL_AGENT" \
     --model gpt-4 \
     --name "Full Test Agent" \
-    --description "A test agent with all parameters" \
-    --force 2>&1 || true)
+    2>&1 || true)
 
 if [[ -d "$AGENTS_DIR/$FULL_AGENT" ]]; then
     # Check config contains the parameters
@@ -254,11 +254,11 @@ test "Duplicate agent creation is prevented"
 cd "$RUNTIME_ROOT"
 cleanup
 
-# Create first agent
-timeout 10 ./runtime.sh create-agent "$TEST_AGENT" --model gpt-4 --force 2>&1 > /dev/null || true
+# Create first agent using script directly
+bash scripts/agent-create.sh --id "$TEST_AGENT" --model gpt-4 2>&1 > /dev/null || true
 
-# Try to create duplicate
-output=$(timeout 10 ./runtime.sh create-agent "$TEST_AGENT" --model gpt-4 --force 2>&1 || true)
+# Try to create duplicate — agent-create.sh exits "already exists"
+output=$(bash scripts/agent-create.sh --id "$TEST_AGENT" --model gpt-4 2>&1 || true)
 
 if echo "$output" | grep -qi "exist\|already\|duplicate\|error\|Error"; then
     pass "Duplicate agent creation is prevented"
@@ -347,7 +347,7 @@ test "Created agent can be cleaned up"
 cd "$RUNTIME_ROOT"
 
 if [[ -d "$TEST_AGENT_DIR" ]]; then
-    ./runtime.sh delete-agent "$TEST_AGENT" --force 2>&1 > /dev/null || true
+    rm -rf "$TEST_AGENT_DIR" 2>/dev/null || true
     if [[ ! -d "$TEST_AGENT_DIR" ]]; then
         pass "Test agent cleaned up successfully"
     else

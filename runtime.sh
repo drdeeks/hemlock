@@ -1066,6 +1066,54 @@ while [[ $# -gt 0 ]]; do
             COMMAND="deactivate-crew"
             break
             ;;
+        crew-start)
+            COMMAND="crew-start"
+            break
+            ;;
+        crew-stop)
+            COMMAND="crew-stop"
+            break
+            ;;
+        crew-monitor)
+            COMMAND="crew-monitor"
+            break
+            ;;
+        build-framework)
+            COMMAND="build-framework"
+            break
+            ;;
+        build-agent)
+            COMMAND="build-agent"
+            break
+            ;;
+        build-crew)
+            COMMAND="build-crew"
+            break
+            ;;
+        export-agent)
+            COMMAND="export-agent"
+            break
+            ;;
+        import)
+            COMMAND="import"
+            break
+            ;;
+        up)
+            COMMAND="up"
+            break
+            ;;
+        down)
+            COMMAND="down"
+            break
+            ;;
+        logs)
+            COMMAND="logs"
+            break
+            ;;
+        ps)
+            COMMAND="ps"
+            break
+            ;;
         list-crews)
             COMMAND="list-crews"
             shift
@@ -1215,6 +1263,92 @@ case "$COMMAND" in
         ;;
     list-crews)
         list_crews
+        ;;
+    crew-start)
+        shift
+        bash "$SCRIPTS_DIR/crew-start.sh" "$@" || true
+        ;;
+    crew-stop)
+        shift
+        bash "$SCRIPTS_DIR/crew-stop.sh" "$@" || true
+        ;;
+    crew-monitor)
+        shift
+        bash "$SCRIPTS_DIR/crew-monitor.sh" "$@" || true
+        ;;
+    build-framework)
+        if [[ "$DRY_RUN" == true ]] || echo "$@" | grep -q -- '--dry-run'; then
+            log "Would build framework image: docker build -t hemlock-framework ."
+        else
+            log "Building framework image..."
+            docker build -t hemlock-framework . 2>&1 || error "Framework build failed"
+        fi
+        ;;
+    build-agent)
+        DOCKER_AGENT_ID=""
+        for _a in "$@"; do [[ "$_a" != --* ]] && [[ -z "$DOCKER_AGENT_ID" ]] && DOCKER_AGENT_ID="$_a"; done
+        if [[ "$DRY_RUN" == true ]] || echo "$@" | grep -q -- '--dry-run'; then
+            log "Would build agent image: docker build --build-arg AGENT_ID=$DOCKER_AGENT_ID -t oc-$DOCKER_AGENT_ID -f Dockerfile.agent ."
+        else
+            log "Building agent image for $DOCKER_AGENT_ID..."
+            docker build --build-arg AGENT_ID="$DOCKER_AGENT_ID" -t "oc-$DOCKER_AGENT_ID" -f Dockerfile.agent . 2>&1 || error "Agent build failed"
+        fi
+        ;;
+    build-crew)
+        DOCKER_CREW_ID=""
+        for _a in "$@"; do [[ "$_a" != --* ]] && [[ -z "$DOCKER_CREW_ID" ]] && DOCKER_CREW_ID="$_a"; done
+        if [[ "$DRY_RUN" == true ]] || echo "$@" | grep -q -- '--dry-run'; then
+            log "Would build crew image: docker build --build-arg CREW_ID=$DOCKER_CREW_ID -t oc-crew-$DOCKER_CREW_ID -f Dockerfile.crew ."
+        else
+            log "Building crew image for $DOCKER_CREW_ID..."
+            docker build --build-arg CREW_ID="$DOCKER_CREW_ID" -t "oc-crew-$DOCKER_CREW_ID" -f Dockerfile.crew . 2>&1 || error "Crew build failed"
+        fi
+        ;;
+    export-agent)
+        DOCKER_EXPORT_AGENT=""
+        for _a in "$@"; do [[ "$_a" != --* ]] && [[ -z "$DOCKER_EXPORT_AGENT" ]] && DOCKER_EXPORT_AGENT="$_a"; done
+        if [[ "$DRY_RUN" == true ]] || echo "$@" | grep -q -- '--dry-run'; then
+            log "Would export agent image: docker save oc-$DOCKER_EXPORT_AGENT | gzip > $DOCKER_EXPORT_AGENT.tar.gz"
+        else
+            docker save "oc-$DOCKER_EXPORT_AGENT" | gzip > "$DOCKER_EXPORT_AGENT.tar.gz" || error "Agent export failed"
+        fi
+        ;;
+    import)
+        DOCKER_IMPORT_IMAGE=""
+        for _a in "$@"; do [[ "$_a" != --* ]] && [[ -z "$DOCKER_IMPORT_IMAGE" ]] && DOCKER_IMPORT_IMAGE="$_a"; done
+        if [[ "$DRY_RUN" == true ]] || echo "$@" | grep -q -- '--dry-run'; then
+            log "Would import image: docker load < $DOCKER_IMPORT_IMAGE"
+        else
+            docker load < "$DOCKER_IMPORT_IMAGE" || error "Image import failed"
+        fi
+        ;;
+    up)
+        if [[ "$DRY_RUN" == true ]] || echo "$@" | grep -q -- '--dry-run'; then
+            log "Would start services: docker compose up -d"
+        else
+            docker compose up -d 2>&1 || error "Service start failed"
+        fi
+        ;;
+    down)
+        if [[ "$DRY_RUN" == true ]] || echo "$@" | grep -q -- '--dry-run'; then
+            log "Would stop services: docker compose down"
+        else
+            docker compose down 2>&1 || error "Service stop failed"
+        fi
+        ;;
+    logs)
+        if [[ "$DRY_RUN" == true ]] || echo "$@" | grep -q -- '--dry-run'; then
+            log "Would show service logs: docker compose logs -f"
+        else
+            docker compose logs -f 2>&1 || error "Logs command failed"
+        fi
+        ;;
+    ps)
+        if [[ "$DRY_RUN" == true ]] || echo "$@" | grep -q -- '--dry-run'; then
+            log "Would list running containers: docker compose ps"
+        else
+            docker compose ps 2>&1 || error "PS command failed"
+        fi
         ;;
     backup)
         if [[ "$SKIP_INIT" == true ]]; then

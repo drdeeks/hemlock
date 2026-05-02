@@ -42,3 +42,30 @@ Agent unit-test-agent-708848 started at Sat Apr 25 06:31:09 PM UTC 2026
 [2026-05-02 20:07:18] [INFO] Agent consistency-test-agent-1777752438 exported successfully to /home/runner/workspace/tests/integration/data/consistency-export
 [2026-05-02 20:07:53] [INFO] Agent consistency-test-agent-1777752473 exported successfully to /home/runner/workspace/tests/integration/data/consistency-export
 [2026-05-02 20:13:26] [INFO] Agent consistency-test-agent-1777752806 exported successfully to /home/runner/workspace/tests/integration/data/consistency-export
+[2026-05-02 20:26:36] [INFO] Agent caa1-0965 exported successfully to /tmp/export-test-35939
+[2026-05-02 20:30:43] [INFO] Agent utest-full-36092 created successfully
+[2026-05-02 20:32:23] [INFO] Agent utest-full-36993 created successfully
+[2026-05-02 20:35:26] [INFO] Agent utc-4095 created successfully
+[2026-05-02 20:35:52] [INFO] Agent utest-full-37315 created successfully
+[2026-05-02 20:35:52] [INFO] Agent utc-4095 created successfully
+[2026-05-02 20:44:30] [INFO] Agent utc-4640 created successfully
+[2026-05-02 20:44:56] [INFO] Agent utest-full-38369 created successfully
+[2026-05-02 20:44:56] [INFO] Agent utc-4640 created successfully
+[2026-05-02 20:44:57] [INFO] Agent exp-ag-38645 created successfully
+[2026-05-02 20:44:57] [INFO] Agent exp-ag-38645 exported successfully to /tmp/agent_import_export_test_38645/export
+[2026-05-02 20:44:58] [INFO] Agent rt-ag-38645 created successfully
+[2026-05-02 20:44:58] [INFO] Agent rt-ag-38645 exported successfully to /tmp/agent_import_export_test_38645/roundtrip
+[2026-05-02 20:45:15] [INFO] Agent utest-mgmt-38871 created successfully
+[2026-05-02 20:45:51] [INFO] Agent caa1-4749 created successfully
+[2026-05-02 20:45:51] [INFO] Agent caa2-4749 created successfully
+[2026-05-02 20:46:35] [INFO] Agent utest-mgmt-42822 created successfully
+[2026-05-02 20:54:33] [INFO] Agent utc-5242 created successfully
+[2026-05-02 20:54:58] [INFO] Agent utest-full-50927 created successfully
+[2026-05-02 20:54:59] [INFO] Agent utc-5242 created successfully
+[2026-05-02 20:55:01] [INFO] Agent exp-ag-51409 created successfully
+[2026-05-02 20:55:02] [INFO] Agent exp-ag-51409 exported successfully to /tmp/agent_import_export_test_51409/export
+[2026-05-02 20:55:02] [INFO] Agent rt-ag-51409 created successfully
+[2026-05-02 20:55:02] [INFO] Agent rt-ag-51409 exported successfully to /tmp/agent_import_export_test_51409/roundtrip
+[2026-05-02 20:55:14] [INFO] Agent utest-mgmt-51646 created successfully
+[2026-05-02 20:56:37] [INFO] Agent caa1-5395 created successfully
+[2026-05-02 20:56:38] [INFO] Agent caa2-5395 created successfully

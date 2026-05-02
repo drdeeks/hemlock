@@ -37,9 +37,9 @@ AGENT_CREATE="$SCRIPTS_DIR/agent-create.sh"
 AGENT_DELETE="$SCRIPTS_DIR/agent-delete.sh"
 CREW_CREATE="$SCRIPTS_DIR/crew-create.sh"
 
-# Test agent and crew IDs
-TEST_AGENT_ID="docker-test-agent-$(date +%s)"
-TEST_CREW_ID="docker-test-crew-$(date +%s)"
+# Test agent and crew IDs (max 16 chars for agents, 21 for crews)
+TEST_AGENT_ID="dta-$(date +%s | tail -c 5)"
+TEST_CREW_ID="dtc-$(date +%s | tail -c 5)"
 
 # Create test directories
 mkdir -p "$AGENTS_DIR"
@@ -83,9 +83,9 @@ function test_agent_dockerfile() {
 
 # Test 3: Test Dockerfile generation for crew
 function test_crew_dockerfile() {
-    # Create test agents
-    local agent1="crew-docker-test-agent1-$(date +%s)"
-    local agent2="crew-docker-test-agent2-$(date +%s)"
+    # Create test agents (max 16 chars)
+    local agent1="cda1-$(date +%s | tail -c 5)"
+    local agent2="cda2-$(date +%s | tail -c 5)"
     bash "$AGENT_CREATE" --id "$agent1" --model nous/mistral-large --name "Crew Docker Test Agent 1"
     bash "$AGENT_CREATE" --id "$agent2" --model nous/mistral-large --name "Crew Docker Test Agent 2"
     
