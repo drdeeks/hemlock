@@ -37,10 +37,11 @@ AGENT_EXPORT="$SCRIPTS_DIR/agent-export.sh"
 AGENT_DELETE="$SCRIPTS_DIR/agent-delete.sh"
 RUNTIME="$RUNTIME_ROOT/runtime.sh"
 
-# Test agent IDs
-TEST_AGENT_ID="test-agent-$(date +%s)"
-IMPORT_AGENT_ID="imported-agent-$(date +%s)"
-EXPORT_AGENT_ID="exported-agent-$(date +%s)"
+# Test agent IDs — kept ≤16 chars (validator limit)
+_TS="$(date +%s | tail -c 5)"
+TEST_AGENT_ID="ta-${_TS}"
+IMPORT_AGENT_ID="imp-${_TS}"
+EXPORT_AGENT_ID="exp-${_TS}"
 
 # Create test directories
 mkdir -p "$AGENTS_DIR"
@@ -131,7 +132,7 @@ function test_agent_export() {
 # Test 4: Test agent deletion
 function test_agent_deletion() {
     # Create test agent for deletion
-    local delete_agent_id="delete-test-agent-$(date +%s)"
+    local delete_agent_id="del-$(date +%s | tail -c 5)"
     bash "$AGENT_CREATE" --id "$delete_agent_id" --model nous/mistral-large --name "Delete Test Agent"
     
     # Create test files in agent directory
@@ -153,8 +154,8 @@ function test_agent_deletion() {
 # Test 5: Test agent listing
 function test_agent_listing() {
     # Create test agents
-    local list_agent1="list-test-agent1-$(date +%s)"
-    local list_agent2="list-test-agent2-$(date +%s)"
+    local list_agent1="lst1-$(date +%s | tail -c 5)"
+    local list_agent2="lst2-$(date +%s | tail -c 5)"
     bash "$AGENT_CREATE" --id "$list_agent1" --model nous/mistral-large --name "List Test Agent 1"
     bash "$AGENT_CREATE" --id "$list_agent2" --model nous/mistral-large --name "List Test Agent 2"
     
@@ -173,7 +174,7 @@ function test_agent_listing() {
 # Test 6: Test agent consistency after operations
 function test_agent_consistency() {
     # Create test agent
-    local consistency_agent="consistency-test-agent-$(date +%s)"
+    local consistency_agent="con-$(date +%s | tail -c 5)"
     bash "$AGENT_CREATE" --id "$consistency_agent" --model nous/mistral-large --name "Consistency Test Agent"
     
     # Create test files
@@ -190,7 +191,7 @@ function test_agent_consistency() {
     bash "$AGENT_DELETE" --id "$consistency_agent" --force
     
     # Import exported agent
-    local imported_agent="consistency-imported-agent-$(date +%s)"
+    local imported_agent="coni-$(date +%s | tail -c 5)"
     bash "$AGENT_IMPORT" --source "$export_dir" --target "$imported_agent"
     
     # Verify imported agent matches original

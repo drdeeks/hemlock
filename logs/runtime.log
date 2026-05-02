@@ -39,3 +39,6 @@ Agent unit-test-agent-708848 started at Sat Apr 25 06:31:09 PM UTC 2026
 [2026-05-02 19:56:10] [INFO] Agent caa2-1768 created successfully
 [2026-05-02 19:56:24] [INFO] Agent exported-agent-1777751783 exported successfully to /home/runner/workspace/tests/integration/data/export-test
 [2026-05-02 19:56:25] [INFO] Agent consistency-test-agent-1777751785 exported successfully to /home/runner/workspace/tests/integration/data/consistency-export
+[2026-05-02 20:07:18] [INFO] Agent consistency-test-agent-1777752438 exported successfully to /home/runner/workspace/tests/integration/data/consistency-export
+[2026-05-02 20:07:53] [INFO] Agent consistency-test-agent-1777752473 exported successfully to /home/runner/workspace/tests/integration/data/consistency-export
+[2026-05-02 20:13:26] [INFO] Agent consistency-test-agent-1777752806 exported successfully to /home/runner/workspace/tests/integration/data/consistency-export

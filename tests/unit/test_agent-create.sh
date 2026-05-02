@@ -93,7 +93,7 @@ test "Create agent with minimal parameters (--id, --model)"
 cd "$RUNTIME_ROOT"
 cleanup  # Ensure clean state
 
-output=$(./runtime.sh create-agent "$TEST_AGENT" --model gpt-4 --dry-run 2>&1 || true)
+output=$(timeout 10 ./runtime.sh create-agent "$TEST_AGENT" --model gpt-4 --dry-run 2>&1 || true)
 
 if echo "$output" | grep -qi "create\|agent\|dry.run\|DRY-RUN"; then
     pass "Agent creation with minimal parameters works (dry-run)"
@@ -115,7 +115,7 @@ test "Create agent with --force flag skips confirmation"
 cd "$RUNTIME_ROOT"
 cleanup
 
-output=$(./runtime.sh create-agent "$TEST_AGENT" --model gpt-4 --force 2>&1 || true)
+output=$(timeout 10 ./runtime.sh create-agent "$TEST_AGENT" --model gpt-4 --force 2>&1 || true)
 
 if [[ -d "$TEST_AGENT_DIR" ]]; then
     pass "Agent created with --force flag"
@@ -136,7 +136,7 @@ test "Agent directory structure is created correctly"
 cd "$RUNTIME_ROOT"
 cleanup
 
-./runtime.sh create-agent "$TEST_AGENT" --model gpt-4 --force 2>&1 > /dev/null || true
+timeout 10 ./runtime.sh create-agent "$TEST_AGENT" --model gpt-4 --force 2>&1 > /dev/null || true
 
 # Check required directories
 required_dirs=("config" "data" "logs" "tools" "skills" ".secrets")
@@ -200,7 +200,7 @@ invalid_names=(
 
 all_rejected=true
 for name in "${invalid_names[@]}"; do
-    output=$(./runtime.sh create-agent "$name" --model gpt-4 --force 2>&1 || true)
+    output=$(timeout 5 ./runtime.sh create-agent "$name" --model gpt-4 --force 2>&1 || true)
     if echo "$output" | grep -qi "invalid\|error\|Error\|fail\|Fail\|name"; then
         : # Expected to fail
     elif [[ -d "$AGENTS_DIR/$name" ]]; then
@@ -222,7 +222,7 @@ cd "$RUNTIME_ROOT"
 cleanup
 
 FULL_AGENT="utest-full-$$"
-output=$(./runtime.sh create-agent "$FULL_AGENT" \
+output=$(timeout 10 ./runtime.sh create-agent "$FULL_AGENT" \
     --model gpt-4 \
     --name "Full Test Agent" \
     --description "A test agent with all parameters" \
@@ -255,10 +255,10 @@ cd "$RUNTIME_ROOT"
 cleanup
 
 # Create first agent
-./runtime.sh create-agent "$TEST_AGENT" --model gpt-4 --force 2>&1 > /dev/null || true
+timeout 10 ./runtime.sh create-agent "$TEST_AGENT" --model gpt-4 --force 2>&1 > /dev/null || true
 
 # Try to create duplicate
-output=$(./runtime.sh create-agent "$TEST_AGENT" --model gpt-4 --force 2>&1 || true)
+output=$(timeout 10 ./runtime.sh create-agent "$TEST_AGENT" --model gpt-4 --force 2>&1 || true)
 
 if echo "$output" | grep -qi "exist\|already\|duplicate\|error\|Error"; then
     pass "Duplicate agent creation is prevented"

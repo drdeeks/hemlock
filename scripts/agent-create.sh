@@ -76,6 +76,21 @@ fi
 echo "Creating agent $AGENT_ID..."
 create_agent_structure "$AGENT_ID"
 
+# Create SOUL.md at agent root (required by lifecycle and export tests)
+cat > "$AGENTS_DIR/$AGENT_ID/SOUL.md" <<EOL
+# SOUL.md - $AGENT_ID
+
+**Identity:** $AGENT_ID
+
+**Purpose:** General purpose assistant
+
+**Model:** $MODEL
+EOL
+
+# Create hidden security directories and placeholder files
+mkdir -p "$AGENTS_DIR/$AGENT_ID/.secrets"
+touch "$AGENTS_DIR/$AGENT_ID/.env.enc"
+
 # Install default skills from global skills directory
 echo "Installing default skills..."
 if [[ -d "$RUNTIME_ROOT/skills" ]] && [[ -n "$(ls -A "$RUNTIME_ROOT/skills" 2>/dev/null | head -1)" ]]; then
