@@ -6,6 +6,22 @@
 # =============================================================================
 
 # -----------------------------------------------------------------------------
+# Model Weights and Large Binary Files (use LFS or external storage instead)
+# -----------------------------------------------------------------------------
+scripts/models/huggingface/
+scripts/models/gguf/
+scripts/models/downloads/
+models/
+*.safetensors
+*.gguf
+*.bin
+*.pt
+*.pth
+*.tar.gz
+*.tar.bz2
+*.zip
+
+# -----------------------------------------------------------------------------
 # Security-Sensitive Files (NEVER include in images)
 # -----------------------------------------------------------------------------
 .env
