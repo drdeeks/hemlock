@@ -1,7 +1,7 @@
 # Hemlock Enterprise Agent Framework
 ## Comprehensive Encyclopedia — Every Function, Flag, Config, and Q&A
 
-> **Version:** 3.4.0 | **Builder Code:** `bc_26ulyc23` | **Updated:** 2026-05-03
+> **Version:** 3.5.0 | **Builder Code:** `bc_26ulyc23` | **Updated:** 2026-05-03
 
 ---
 
@@ -33,6 +33,8 @@
 24. [Troubleshooting Decision Trees](#24-troubleshooting-decision-trees)
 25. [Glossary](#25-glossary)
 26. [Changelog](#26-changelog)
+27. [Interactive Setup Wizard](#27-interactive-setup-wizard)
+28. [GUI Technology Guide](#28-gui-technology-guide)
 
 ---
 
@@ -388,7 +390,7 @@ rm -f .cache/.first_run_completed
 | `OPENCLAW_WORKSPACE_DIR` | `~/.openclaw/workspace` | OpenClaw workspace directory |
 | `GOG_KEYRING_PASSWORD` | _(empty)_ | Keyring password for encrypted secrets |
 | `XDG_CONFIG_HOME` | `/home/node/.openclaw` | XDG config home override |
-| `DEFAULT_AGENT_MODEL` | `nous/mistral-large` | Default LLM model |
+| `DEFAULT_AGENT_MODEL` | `ollama/qwen3:0.6b` | Default LLM model |
 | `DEFAULT_AGENT_NETWORK` | `agents_net` | Default Docker network |
 | `MODEL_BACKEND` | `ollama` | Model backend (`ollama`, `llamacpp`, `openrouter`) |
 | `DEFAULT_MODEL` | _(from backend)_ | Model name for selected backend |
@@ -410,7 +412,7 @@ runtime:
     token: "..."             # Auth token (change in production)
     bind: "lan"              # lan | localhost | all
   agents:
-    default_model: "nous/mistral-large"   # Default LLM
+    default_model: "ollama/qwen3:0.6b"    # Default LLM (local Ollama)
     default_network: "agents_net"         # Docker network name
   security:
     read_only: true          # Agent containers use read-only filesystem
@@ -430,7 +432,7 @@ runtime:
 agent:
   id: <agent_id>
   name: <display_name>
-  model: "nous/mistral-large"       # LLM model
+  model: "ollama/qwen3:0.6b"        # LLM model (local Ollama default)
   personality: "default"
   memory:
     enabled: true
@@ -624,7 +626,7 @@ Creates a new agent directory with full structure.
 agents/<id>/
   data/SOUL.md           Default soul with id, purpose, capabilities, limitations
   data/AGENTS.md         Default workspace file
-  config.yaml            Default config (model: nous/mistral-large, memory.max_chars: 100000)
+  config.yaml            Default config (model: ollama/qwen3:0.6b, memory.max_chars: 100000)
   config/                Empty config overrides directory
   logs/                  Empty logs directory
   skills/                Empty skills directory
@@ -636,7 +638,7 @@ agents/<id>/
 agent:
   id: <agent_id>
   name: <agent_id>
-  model: "nous/mistral-large"
+  model: "ollama/qwen3:0.6b"
   personality: "default"
   memory:
     enabled: true
@@ -2522,7 +2524,7 @@ Low health score
 | **MCP** | Model Context Protocol — communication between Gateway and Brain server |
 | **Memory context** | `agents/<id>/tools/memory-context.md` — aggregated by tool-inject-memory.sh |
 | **MEMORY.md** | Persistent memory file; auto-updated by brain on insight detection |
-| **nous/mistral-large** | Default LLM model configured in runtime.yaml |
+| **ollama/qwen3:0.6b** | Default LLM model — local Ollama, no API key required |
 | **OpenClaw** | The gateway platform (Node.js) at the top of the message routing stack |
 | **Q4_K_M** | 4-bit quantization method; default for Qwen3-0.6B in Hemlock |
 | **RUNTIME_ROOT** | Project root directory; auto-detected by scripts |
@@ -2536,6 +2538,15 @@ Low health score
 ---
 
 ## 26. Changelog
+
+### v3.5.0 (2026-05-03)
+
+- Default model changed globally from `nous/mistral-large` → `ollama/qwen3:0.6b` (11 files)
+- `scripts/setup-wizard.sh` added — full interactive setup wizard (provider, runtime, agent, crew)
+- `tests/unit/test-helpers.sh` and `tests/integration/test-helpers.sh` repaired (were broken one-liners)
+- `scripts/agent-import.sh` — `--force` added as alias for `--overwrite` (backward compatibility)
+- README encyclopedia sections 27 (setup wizard) and 28 (GUI Technology Guide) added
+- All integration tests: 12/12 passing; all unit tests: 0 failures
 
 ### v3.4.0 (2026-05-03)
 
@@ -2574,6 +2585,809 @@ Low health score
 - Docker-based multi-agent architecture
 - OpenClaw gateway + Hermes brain MCP protocol
 - 28 tests (validation/unit/integration/e2e/security)
+
+---
+
+---
+
+## 27. Interactive Setup Wizard
+
+**Script:** `scripts/setup-wizard.sh`
+
+A full interactive wizard that guides users through provider selection, model configuration, gateway setup, agent creation, and crew configuration. Designed as the first thing a new operator runs.
+
+### Usage
+
+```bash
+# Full wizard (all sections in order)
+bash scripts/setup-wizard.sh
+
+# Jump to a specific section
+bash scripts/setup-wizard.sh --provider    # Provider & model only
+bash scripts/setup-wizard.sh --runtime    # Gateway / runtime.yaml only
+bash scripts/setup-wizard.sh --agent      # Agent create/update only
+bash scripts/setup-wizard.sh --crew       # Crew create/update only
+bash scripts/setup-wizard.sh --help       # Show usage
+```
+
+### Flags / modes
+
+| Flag | Short | What it does |
+|------|-------|-------------|
+| `--all` | _(default)_ | Full interactive wizard — provider → runtime → agent → crew |
+| `--provider` | `-p` | Provider and model selection only |
+| `--runtime` | `-r` | Gateway port, bind, token, log level only |
+| `--agent` | `-a` | Create new agents or update existing agents only |
+| `--crew` | `-c` | Create or update crew configs only |
+| `--help` | `-h` | Show usage |
+
+### Section 1 — Provider & Model
+
+Presents a numbered list of all supported providers:
+
+| # | Provider | Notes |
+|---|----------|-------|
+| 1 | `ollama` | Local — no API key; auto-detects if running |
+| 2 | `openai` | GPT-4o, GPT-4, GPT-3.5 |
+| 3 | `anthropic` | Claude 3.5, Claude 3 |
+| 4 | `groq` | Fast inference — LLaMA, Mixtral |
+| 5 | `together` | Open-source models via Together AI |
+| 6 | `mistral` | Mistral Large, Devstral |
+| 7 | `custom` | Any OpenAI-compatible endpoint |
+
+**Ollama path:**
+- Detects whether `ollama` command and daemon are available
+- If absent: prints install instructions (`curl -fsSL https://ollama.com/install.sh | sh`) and optionally opens browser
+- Shows numbered model menu with RAM requirements (0.6b → 70b)
+- Offers to run `ollama pull <model>` immediately if daemon is live
+- Default model: `qwen3:0.6b` (choice #1)
+
+**Cloud provider path:**
+- Detects whether the required API key env var is already set
+- If not set: prompts to enter key (hidden input); writes to `.env` securely
+- Shows numbered model list for the chosen provider
+- Supports manual entry
+
+**Outputs written:**
+- `config/runtime.yaml` — `default_model` and `default_provider` updated
+- `.env.wizard` — `MODEL_PROVIDER`, `DEFAULT_MODEL`, optional `OLLAMA_HOST`
+
+### Section 2 — Runtime & Gateway
+
+Configures `config/runtime.yaml` interactively:
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| Gateway port | `18789` | Port the OpenClaw gateway listens on |
+| Bind interface | `lan` | `lan` / `localhost` / `all` |
+| Token | auto-generated | 48-char hex via `openssl rand -hex 24` |
+| Log level | `info` | `debug` / `info` / `warn` / `error` |
+
+Token is also appended to `.env` as `OPENCLAW_GATEWAY_TOKEN=<token>`.
+
+### Section 3 — Agent Creation
+
+- Lists all existing agents with their current model
+- Menu: create new / update existing / skip
+- **Create flow:**
+
+| Field | Validated | Notes |
+|-------|-----------|-------|
+| Agent ID | `^[a-z][a-z0-9_-]{2,15}$` | Re-prompts until valid and unique |
+| Display name | — | Defaults to agent ID |
+| Purpose / role | — | Written to SOUL.md and config.yaml |
+| Model | — | Defaults to wizard-selected model |
+| Personality | 6 presets + custom | default / assistant / analyst / developer / researcher / custom |
+| Max memory chars | — | Defaults to 100000 |
+
+- Creates full agent directory structure with hardened permissions
+- Writes `config.yaml` and `SOUL.md`
+- Loops to allow creating multiple agents in one session
+
+**Update flow:** select existing agent, update model, optionally update purpose and personality.
+
+### Section 4 — Crew Configuration
+
+| Field | Notes |
+|-------|-------|
+| Crew name | `^[a-z][a-z0-9_-]{2,15}$` |
+| Description | Free text |
+| Strategy | `sequential` / `parallel` / `hierarchical` / `vote` |
+| Members | Numbered pick from existing agents; loops until done |
+
+Writes `config/crews/<crew_name>.yaml` with all selected agents' models embedded.
+
+### Section 5 — Summary
+
+Prints all configured agents and crews, then shows next-step commands tailored to the chosen provider.
+
+### Files produced by the wizard
+
+| File | Contents |
+|------|---------|
+| `config/runtime.yaml` | gateway port, token, bind, model, provider, security, logging |
+| `.env` | `OPENCLAW_GATEWAY_TOKEN=<token>` appended |
+| `.env.wizard` | `MODEL_PROVIDER`, `DEFAULT_MODEL`, `OLLAMA_HOST` (Ollama only) |
+| `agents/<id>/config.yaml` | Full per-agent config |
+| `agents/<id>/SOUL.md` | Identity / purpose / model |
+| `agents/<id>/.secrets/` | Created, mode 700 |
+| `agents/<id>/.env` | Created empty, mode 600 |
+| `config/crews/<name>.yaml` | Crew definition with strategy and member list |
+
+### Internals
+
+| Function | Purpose |
+|----------|---------|
+| `show_welcome()` | ASCII banner + overview |
+| `check_ollama()` | Sets `$OLLAMA_AVAILABLE`; tests `ollama list` |
+| `ollama_model_pulled(tag)` | Returns 0 if model tag in `ollama list` output |
+| `section_provider()` | Provider + model selection; writes `.env.wizard` |
+| `_save_provider_config()` | Applies model/provider to `runtime.yaml` |
+| `section_runtime()` | Gateway config; generates token; writes `runtime.yaml` |
+| `section_agent()` | Agent create/update menu |
+| `_create_agent()` | Full create flow with validation loop |
+| `_update_agent()` | Update model/purpose/personality of existing agent |
+| `section_crew()` | Crew create flow with member picker |
+| `section_summary()` | Final summary and next-step instructions |
+
+---
+
+## 28. GUI Technology Guide
+
+This section covers every architectural decision, technology option, API surface, component breakdown, and implementation path for building a graphical user interface on top of the Hemlock framework.
+
+### 28.1 Why a GUI?
+
+The Hemlock CLI is the source of truth. A GUI adds:
+
+| Benefit | CLI gap it fills |
+|---------|-----------------|
+| Live agent/crew status at a glance | `docker ps` / `agent-monitor.sh` require terminal |
+| Log streaming without terminal | `agent-logs.sh` is CLI-only |
+| Model/provider picker | Manual config file edits |
+| Memory and session browsing | Raw `cat` / `ls` |
+| One-click agent create/delete | Multi-command sequence |
+| Crew topology visualization | No visual representation exists |
+| Backup management | Interactive script only |
+| Non-technical operator access | CLI requires bash literacy |
+
+---
+
+### 28.2 Architecture: Where the GUI Fits
+
+```
+┌────────────────────────────────────────────────────┐
+│                    GUI Layer                        │
+│  (Web SPA / Desktop App / TUI)                     │
+│                                                    │
+│   Dashboard │ Agents │ Crews │ Models │ Logs │ …   │
+└──────────────────────┬─────────────────────────────┘
+                       │  HTTP + WebSocket
+┌──────────────────────▼─────────────────────────────┐
+│               Hemlock API Server                    │
+│  (New: thin REST/WS layer wrapping runtime.sh)      │
+│                                                    │
+│  GET  /agents          list agents                 │
+│  POST /agents          create agent                │
+│  WS   /logs/:id        stream container logs       │
+│  GET  /status          system health               │
+└──────────────────────┬─────────────────────────────┘
+                       │  shell exec / docker API
+┌──────────────────────▼─────────────────────────────┐
+│            Hemlock Runtime (existing)               │
+│  runtime.sh · agent-create.sh · agent-control.sh  │
+│  docker-compose.yml · config/runtime.yaml          │
+└────────────────────────────────────────────────────┘
+```
+
+The GUI never writes files or runs containers directly. It calls the API server, which is a thin authenticated wrapper over the existing bash scripts and Docker API.
+
+---
+
+### 28.3 Technology Options
+
+#### Option A — Web SPA (Recommended)
+
+Best for: multi-user, remote access, no install on operator machine.
+
+| Layer | Recommended | Alternatives |
+|-------|-------------|-------------|
+| Framework | **React 19 + Vite** | Next.js 15, SvelteKit, Vue 3 |
+| UI library | **shadcn/ui + Tailwind CSS** | Chakra UI, Ant Design, MUI |
+| State | **Zustand** | Redux Toolkit, Jotai |
+| Real-time | **native WebSocket** | Socket.io, SSE |
+| Charts | **Recharts** | Victory, Chart.js |
+| Data fetching | **TanStack Query** | SWR |
+| Routing | **TanStack Router** | React Router 7 |
+| Build | **Vite 6** | Turbopack |
+
+**API server:** Node.js (Express / Fastify / Hono) — runs alongside the framework on the host.
+
+#### Option B — Desktop (Tauri)
+
+Best for: single-operator setup, no separate server, full native OS integration.
+
+| Layer | Stack |
+|-------|-------|
+| Shell | **Tauri 2** (Rust backend + WebView frontend) |
+| Frontend | Same React/Vite stack as Option A |
+| IPC | Tauri commands → `std::process::Command` → `bash scripts/…` |
+| Packaging | `.AppImage`, `.dmg`, `.exe` |
+
+Tauri commands map directly to CLI calls:
+```rust
+#[tauri::command]
+async fn list_agents() -> Result<Vec<Agent>, String> {
+    let output = Command::new("bash")
+        .args(["runtime.sh", "list-agents", "--json"])
+        .output()?;
+    Ok(serde_json::from_slice(&output.stdout)?)
+}
+```
+
+#### Option C — Terminal UI (TUI)
+
+Best for: SSH-only environments, minimal dependencies.
+
+| Tool | Language | Notes |
+|------|----------|-------|
+| **Textual** | Python | Modern, rich widgets, async |
+| **Bubbletea** | Go | Fast, composable, good for dashboards |
+| **Ratatui** | Rust | High performance |
+| **Blessed** | Node.js | Terminal rendering from the same stack |
+
+---
+
+### 28.4 API Server Design
+
+Create `scripts/api-server/` as a Node.js (Fastify) or Python (FastAPI) application that wraps CLI commands.
+
+#### Authentication
+
+All requests must carry the gateway token:
+```
+Authorization: Bearer <OPENCLAW_GATEWAY_TOKEN>
+```
+
+The server reads `OPENCLAW_GATEWAY_TOKEN` from `.env` and validates every request.
+
+#### REST Endpoints — Complete Map
+
+**Agents**
+
+| Method | Path | Description | CLI equivalent |
+|--------|------|-------------|---------------|
+| `GET` | `/api/agents` | List all agents with status | `./runtime.sh list-agents` |
+| `GET` | `/api/agents/:id` | Agent detail + config.yaml | `./runtime.sh agent-status :id` |
+| `POST` | `/api/agents` | Create agent | `./scripts/agent-create.sh` |
+| `DELETE` | `/api/agents/:id` | Delete agent | `./scripts/agent-delete.sh :id --force` |
+| `POST` | `/api/agents/:id/start` | Start container | `./scripts/agent-control.sh start :id` |
+| `POST` | `/api/agents/:id/stop` | Stop container | `./scripts/agent-control.sh stop :id` |
+| `POST` | `/api/agents/:id/restart` | Restart container | `./scripts/agent-control.sh restart :id` |
+| `GET` | `/api/agents/:id/config` | Get config.yaml | file read |
+| `PUT` | `/api/agents/:id/config` | Update config.yaml | file write + restart |
+| `GET` | `/api/agents/:id/memory` | Get memory context | file read |
+| `POST` | `/api/agents/:id/memory/inject` | Inject memory | `tool-inject-memory.sh :id` |
+| `POST` | `/api/agents/:id/export` | Export agent | `agent-export.sh :id` |
+| `POST` | `/api/agents/import` | Import agent | `agent-import.sh` |
+
+**Crews**
+
+| Method | Path | Description | CLI equivalent |
+|--------|------|-------------|---------------|
+| `GET` | `/api/crews` | List all crews | `./runtime.sh list-crews` |
+| `GET` | `/api/crews/:name` | Crew detail | `./runtime.sh crew-status :name` |
+| `POST` | `/api/crews` | Create crew | `./scripts/crew-create.sh` |
+| `DELETE` | `/api/crews/:name` | Dissolve crew | `./scripts/crew-dissolve.sh :name --force` |
+| `POST` | `/api/crews/:name/start` | Start all agents | `./scripts/crew-start.sh :name` |
+| `POST` | `/api/crews/:name/stop` | Stop all agents | `./scripts/crew-stop.sh :name` |
+| `POST` | `/api/crews/:name/agents/:id` | Add agent to crew | `./scripts/crew-join.sh :name :id` |
+| `DELETE` | `/api/crews/:name/agents/:id` | Remove from crew | `./scripts/crew-leave.sh :name :id` |
+
+**Models & Providers**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/models` | List Ollama pulled models + configured providers |
+| `POST` | `/api/models/pull` | `ollama pull <model>` |
+| `GET` | `/api/providers` | List configured providers with key status |
+| `PUT` | `/api/config/provider` | Update default provider in runtime.yaml |
+
+**System**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/status` | System health (doctor check --json) |
+| `GET` | `/api/config` | runtime.yaml contents |
+| `PUT` | `/api/config` | Update runtime.yaml |
+| `POST` | `/api/backup` | Run backup |
+| `GET` | `/api/backup/list` | List backups |
+| `POST` | `/api/setup/wizard` | Run headless wizard with JSON body |
+
+#### WebSocket Endpoints
+
+| Path | Direction | Data |
+|------|-----------|------|
+| `WS /ws/logs/:id` | server→client | Live container log lines (JSON `{ts, line, level}`) |
+| `WS /ws/logs/crew/:name` | server→client | Multiplexed logs from all crew members |
+| `WS /ws/status` | server→client | Agent/crew status heartbeat every 5s |
+| `WS /ws/events` | server→client | Framework events (agent started/stopped/created) |
+
+**Log streaming implementation:**
+```javascript
+// Server side — Fastify + ws
+ws.on('connection', (socket, req) => {
+  const agentId = req.params.id;
+  const proc = spawn('docker', ['logs', '-f', '--tail', '100', `oc-${agentId}`]);
+  proc.stdout.on('data', (d) => socket.send(JSON.stringify({ line: d.toString() })));
+  socket.on('close', () => proc.kill());
+});
+```
+
+---
+
+### 28.5 Component Map (UI)
+
+#### Dashboard
+
+```
+┌──────────────────────────────────────────────────────┐
+│  System Health   ██████████ 94%    Agents: 4/4 UP   │
+│  Model: ollama/qwen3:0.6b          Crews: 2 active  │
+├──────────────────────────────────────────────────────┤
+│  AGENTS                         CREWS                │
+│  ● titan      running  qwen3:0.6b  ○ devteam  3/3  │
+│  ● mort       running  gpt-4o      ○ research 2/2  │
+│  ● analyst    stopped  claude-3                     │
+│  ● helper     running  qwen3:0.6b                   │
+├──────────────────────────────────────────────────────┤
+│  RECENT LOGS                                         │
+│  [titan] 03:41 User message received                 │
+│  [mort]  03:40 Tool call: web_search                 │
+└──────────────────────────────────────────────────────┘
+```
+
+**Components needed:**
+- `<SystemHealthBar>` — reads `/api/status`, animates score
+- `<AgentCard>` — status badge, model chip, start/stop button
+- `<CrewCard>` — member count, strategy badge, start/stop
+- `<LiveLogTail>` — WebSocket `/ws/logs/:id`, virtual scroll
+
+#### Agent Detail Page
+
+```
+┌─ titan ───────────────────── [Start] [Stop] [Delete] ─┐
+│  Model:  ollama/qwen3:0.6b  [Change]                  │
+│  Status: ● Running  Container: oc-titan               │
+├── Tabs: Config │ SOUL │ Memory │ Logs │ Sessions ──────┤
+│  [Config tab]                                          │
+│  ┌──────────────────────────────────────────────────┐ │
+│  │  id: titan                                       │ │
+│  │  model: ollama/qwen3:0.6b              [Edit]    │ │
+│  │  personality: assistant                          │ │
+│  │  memory.max_chars: 100000                        │ │
+│  └──────────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────────┘
+```
+
+**Components needed:**
+- `<AgentDetailHeader>` — status, model picker, action buttons
+- `<ConfigEditor>` — YAML editor (CodeMirror or Monaco) with save → `PUT /api/agents/:id/config`
+- `<MarkdownEditor>` — edit SOUL.md, USER.md, MEMORY.md in-browser
+- `<LogViewer>` — WebSocket stream with search, filter, pause/resume
+- `<SessionBrowser>` — JSONL session list with expand/collapse
+
+#### Model & Provider Manager
+
+```
+┌─ Models & Providers ───────────────────────────────────┐
+│  Active: ollama/qwen3:0.6b                            │
+│                                                        │
+│  ─── Ollama (local) ────────────────────────────────  │
+│  ● qwen3:0.6b    pulled  0.6B   [Set Default]        │
+│  ● qwen3:1.7b    pulled  1.7B   [Set Default]        │
+│    llama3.1:8b   —       8B    [Pull]                │
+│                                                        │
+│  ─── Cloud Providers ───────────────────────────────  │
+│  OpenAI      API key: ✓ set    [Configure]           │
+│  Anthropic   API key: ✗ not set [Add Key]            │
+│  Groq        API key: ✗ not set [Add Key]            │
+└────────────────────────────────────────────────────────┘
+```
+
+**Components needed:**
+- `<OllamaModelList>` — pulls from `GET /api/models`, shows pull progress via SSE
+- `<ProviderCard>` — key status indicator, configure button
+- `<ApiKeyModal>` — secure input (password field), calls `PUT /api/config/provider`
+- `<ModelPullProgress>` — WebSocket stream of `ollama pull` output
+
+#### Crew Topology View
+
+```
+        ┌──────────┐
+        │  devteam │  strategy: hierarchical
+        └─────┬────┘
+     ┌────────┴────────┐
+     ▼                 ▼
+┌─────────┐       ┌─────────┐
+│  titan  │       │   mort  │
+│ ● UP    │       │ ● UP    │
+└─────────┘       └─────────┘
+```
+
+**Components needed:**
+- `<CrewGraph>` — uses **React Flow** or **D3** for node-link diagram
+- `<AgentNode>` — status colour, model, click to detail
+- `<CrewStrategyBadge>` — sequential / parallel / hierarchical / vote chip
+- `<MemberPicker>` — add/remove agents with drag-and-drop
+
+#### Setup Wizard UI
+
+GUI version of `scripts/setup-wizard.sh` — a multi-step modal/page:
+
+```
+Step 1 of 4 — Provider
+  ○ Ollama (local)   ← selected
+  ○ OpenAI
+  ○ Anthropic
+  ○ Groq
+  ...
+
+    [Back]                     [Next →]
+```
+
+**Components:**
+- `<WizardStepper>` — progress indicator
+- `<ProviderPicker>` — radio cards with detection badges
+- `<ModelPicker>` — searchable dropdown with RAM tags
+- `<ApiKeyInput>` — masked input with validation
+- `<OllamaInstallGuide>` — collapsible instructions + copy-able commands
+- `<AgentCreatorForm>` — all agent fields with ID validation
+- `<CrewBuilderForm>` — name, strategy, member picker
+
+---
+
+### 28.6 State Management
+
+Recommended shape for Zustand store:
+
+```typescript
+interface HhemlockStore {
+  // auth
+  token: string;
+  setToken: (t: string) => void;
+
+  // agents
+  agents: Agent[];
+  fetchAgents: () => Promise<void>;
+  createAgent: (payload: CreateAgentPayload) => Promise<Agent>;
+  deleteAgent: (id: string) => Promise<void>;
+  startAgent: (id: string) => Promise<void>;
+  stopAgent: (id: string) => Promise<void>;
+
+  // crews
+  crews: Crew[];
+  fetchCrews: () => Promise<void>;
+
+  // models
+  ollamaModels: OllamaModel[];
+  providers: Provider[];
+  fetchModels: () => Promise<void>;
+  pullModel: (tag: string) => Promise<void>;
+
+  // system
+  health: HealthReport | null;
+  fetchHealth: () => Promise<void>;
+
+  // logs (WebSocket subscriptions, one per agent)
+  logStreams: Map<string, LogLine[]>;
+  subscribeToLogs: (agentId: string) => () => void; // returns unsubscribe fn
+}
+```
+
+TanStack Query handles caching and background refetch for all `GET` calls; Zustand holds WebSocket state.
+
+---
+
+### 28.7 Environment Variables (GUI / API Server)
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `HEMLOCK_API_PORT` | `3001` | Port for the API server |
+| `HEMLOCK_API_HOST` | `0.0.0.0` | API server bind address |
+| `OPENCLAW_GATEWAY_TOKEN` | _(required)_ | Auth token (same as runtime) |
+| `RUNTIME_ROOT` | _(auto-detected)_ | Absolute path to framework root |
+| `DOCKER_HOST` | `unix:///var/run/docker.sock` | Docker daemon socket |
+| `GUI_CORS_ORIGINS` | `http://localhost:5173` | Comma-separated allowed origins |
+| `GUI_LOG_LEVEL` | `info` | API server log level |
+| `VITE_API_URL` | `http://localhost:3001` | Frontend → API base URL |
+| `VITE_WS_URL` | `ws://localhost:3001` | Frontend → WebSocket base URL |
+
+---
+
+### 28.8 Quick-Start Scaffolding
+
+#### Option A — React + Fastify (Web)
+
+```bash
+# Create project
+mkdir hemlock-gui && cd hemlock-gui
+
+# API server
+mkdir api && cd api
+npm init -y
+npm install fastify @fastify/websocket @fastify/cors dotenv
+# Copy api-server template from docs/gui/
+
+# Frontend
+cd ..
+npm create vite@latest frontend -- --template react-ts
+cd frontend
+npm install
+npm install zustand @tanstack/react-query @tanstack/react-router \
+  tailwindcss shadcn-ui recharts reactflow lucide-react
+npx tailwindcss init -p
+npx shadcn-ui@latest init
+
+# Environment
+cp ../../.env .env     # copies OPENCLAW_GATEWAY_TOKEN
+echo "VITE_API_URL=http://localhost:3001" >> frontend/.env
+echo "VITE_WS_URL=ws://localhost:3001"   >> frontend/.env
+```
+
+#### Option B — Tauri + React (Desktop)
+
+```bash
+# Prerequisites: Rust + Node.js
+cargo install tauri-cli
+
+# Create
+npm create tauri-app@latest hemlock-desktop -- \
+  --template react-ts
+
+cd hemlock-desktop
+npm install
+# Same frontend deps as Option A
+
+# Add Tauri commands in src-tauri/src/commands.rs
+# (shell exec → runtime.sh)
+cargo tauri dev
+```
+
+#### Option C — Python Textual (TUI)
+
+```bash
+pip install textual rich
+
+# Entry point
+python -m hemlock_tui
+# Calls ./runtime.sh commands via subprocess;
+# streams docker logs via asyncio subprocess
+```
+
+---
+
+### 28.9 Data Flow Diagrams
+
+#### Agent Create (GUI → runtime)
+
+```
+User fills form
+  → POST /api/agents {id, model, name, personality}
+  → API server validates id (^[a-z][a-z0-9_-]{2,15}$)
+  → Runs: bash scripts/agent-create.sh --id <id> --model <model> --name <name>
+  → Reads stdout/stderr
+  → Returns {ok: true, agent: {id, path, model}}
+  → UI adds agent card to dashboard
+```
+
+#### Live Log Stream (GUI → container)
+
+```
+User opens Log Viewer for titan
+  → UI opens WebSocket: ws://localhost:3001/ws/logs/titan
+  → API server spawns: docker logs -f --tail 100 oc-titan
+  → Pipes stdout/stderr line-by-line as JSON frames
+  → UI appends to virtual scroll list (max 10,000 lines buffered)
+  → User closes tab → WebSocket closes → `docker logs` process killed
+```
+
+#### Model Pull Progress
+
+```
+User clicks [Pull qwen3:4b]
+  → POST /api/models/pull {tag: "qwen3:4b"}
+  → API server opens SSE response
+  → Spawns: ollama pull qwen3:4b
+  → Streams stdout lines as SSE events: data: {"progress": "45%", "layer": "sha256:abc..."}
+  → UI shows animated progress bar
+  → On completion: refreshes /api/models
+```
+
+---
+
+### 28.10 Deployment Options
+
+#### Embedded (same host as runtime)
+
+```bash
+# In .env add:
+HEMLOCK_API_PORT=3001
+GUI_CORS_ORIGINS=http://localhost:5173
+
+# Start API server
+node api/server.js &
+
+# Start GUI dev server
+cd frontend && npm run dev
+```
+
+Access at `http://localhost:5173`.
+
+#### Production build behind Nginx
+
+```nginx
+server {
+    listen 80;
+    server_name hemlock.local;
+
+    # Serve built React app
+    location / {
+        root /opt/hemlock-gui/dist;
+        try_files $uri /index.html;
+    }
+
+    # Proxy API
+    location /api/ {
+        proxy_pass http://localhost:3001;
+    }
+
+    # Proxy WebSocket
+    location /ws/ {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}
+```
+
+#### Docker Compose integration
+
+```yaml
+# Add to docker-compose.yml:
+  hemlock-gui:
+    build:
+      context: ./hemlock-gui
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+      - "5173:5173"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/hemlock:ro
+    environment:
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+      - RUNTIME_ROOT=/hemlock
+    networks:
+      - agents_net
+```
+
+---
+
+### 28.11 Security Considerations for the GUI
+
+| Risk | Mitigation |
+|------|-----------|
+| Unauthenticated API access | Require `Authorization: Bearer <OPENCLAW_GATEWAY_TOKEN>` on every request |
+| Token exposure in browser | Store token in `sessionStorage` only; never `localStorage`; never log it |
+| CORS | Restrict `GUI_CORS_ORIGINS` to known origins; never use `*` in production |
+| API server command injection | Validate all user inputs before passing to shell; use argument arrays, never string concatenation |
+| Docker socket exposure | Mount read-only where possible; restrict to localhost |
+| Secrets in log stream | Log stream is raw container output — ensure agents don't log secrets |
+| XSS in log viewer | Always escape log line content before rendering to DOM |
+
+---
+
+### 28.12 GUI Q&A
+
+**Q: Can the GUI run on a different machine from the runtime?**
+
+Yes. The API server needs access to the framework files (`RUNTIME_ROOT`) and the Docker socket. Use SSH port forwarding or a VPN. Do not expose the Docker socket to the public internet.
+
+```bash
+# SSH tunnel from laptop to server
+ssh -L 3001:localhost:3001 user@server
+# Then access http://localhost:5173 (frontend) → http://localhost:3001 (API)
+```
+
+**Q: Does the GUI need Docker to run?**
+
+The GUI + API server do not require Docker themselves. The API server calls `bash scripts/…` on the host; those scripts call Docker. If Docker is unavailable, agent start/stop will fail gracefully.
+
+**Q: How do I add a new CLI command to the GUI?**
+
+1. Add a new REST endpoint in the API server that shells out to the command
+2. Add a Zustand action that calls the endpoint
+3. Wire it to a button or form in the React component
+4. Test end-to-end
+
+**Q: What is the minimum viable GUI?**
+
+A single-page read-only dashboard:
+- `GET /api/agents` → render agent cards with status
+- `WS /ws/status` → live status updates
+- One log viewer per agent
+
+This takes roughly 2–3 hours with shadcn/ui scaffolding.
+
+**Q: How do I handle the setup wizard in the GUI?**
+
+The GUI wizard calls `POST /api/setup/wizard` with a JSON body that the API server translates into the equivalent `setup-wizard.sh` section calls, or writes config files directly. The bash wizard and GUI wizard are independent implementations of the same flow.
+
+**Q: Can I embed the GUI in a Telegram mini-app?**
+
+Yes. Telegram Mini Apps use a WebView iframe. Build the React app with `VITE_BASE_URL=/` and serve it from the existing API server. The Telegram web app context provides user authentication via `initData`. Map Telegram user identity to the gateway token.
+
+**Q: What charting library for the dashboard?**
+
+Recharts for simplicity (React-native, composable). For heavy real-time metrics (CPU/memory per agent), use Chart.js with streaming plugin or uPlot for performance.
+
+**Q: How do I test the GUI without a running framework?**
+
+Use Mock Service Worker (MSW) to intercept API calls in the browser and return fixture data. Define mocks for all endpoints in `src/mocks/handlers.ts`.
+
+```typescript
+// src/mocks/handlers.ts
+import { http, HttpResponse } from 'msw';
+export const handlers = [
+  http.get('/api/agents', () => HttpResponse.json([
+    { id: 'titan', status: 'running', model: 'ollama/qwen3:0.6b' },
+  ])),
+];
+```
+
+---
+
+### 28.13 Troubleshooting: GUI & API Server
+
+```
+GUI cannot connect to API server
+  │
+  ├─ Check VITE_API_URL in frontend/.env
+  │   └─ Must match API server port (default 3001)
+  │
+  ├─ Check API server running: curl http://localhost:3001/api/status
+  │   └─ Connection refused: node api/server.js not started
+  │
+  └─ Check CORS: browser console shows "CORS error"
+       └─ Add frontend origin to GUI_CORS_ORIGINS in .env
+
+WebSocket log stream disconnects immediately
+  │
+  ├─ Check container exists: docker ps | grep oc-<id>
+  │   └─ Not running: start agent first
+  │
+  └─ Check Docker socket access:
+       ls -la /var/run/docker.sock
+       └─ Permission denied: add API server user to docker group
+
+Agent create fails from GUI
+  │
+  ├─ Check API server logs for the shell command that ran
+  │
+  ├─ Check agent ID format (^[a-z][a-z0-9_-]{2,15}$)
+  │
+  └─ Check RUNTIME_ROOT env var points to framework root
+
+Model pull hangs in GUI
+  │
+  ├─ Check Ollama is running: curl http://localhost:11434/api/tags
+  │   └─ Not running: ollama serve
+  │
+  └─ Check disk space: df -h
+       └─ Low disk: free space before pulling large models
+```
 
 ---
 
