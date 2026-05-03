@@ -1,5 +1,29 @@
 #!/bin/bash
-# Agent Import Script
+# =============================================================================
+# agent-import.sh — Import an agent from a directory or archive
+#
+# Handles everything: extraction, file copy (including hidden files), model
+# detection from imported config, docker-compose.yml injection, Docker image
+# build, and permission hardening.
+#
+# Usage:
+#   ./scripts/agent-import.sh <source> <agent_id> [flags]
+#   ./scripts/agent-import.sh --source <path> --target <id> [flags]
+#
+# Flags:
+#   --source <path>     Source directory or archive (.tar.gz / .zip / .tar.bz2)
+#   --target <id>       Agent ID for the imported agent
+#   --model <model>     Override model (default: read from imported config.yaml)
+#   --overwrite         Replace existing agent (backs up first)
+#   --no-build          Skip Docker image build
+#   --no-compose        Skip docker-compose.yml update
+#   --quiet             Suppress non-error output
+#
+# Examples:
+#   ./scripts/agent-import.sh /backups/titan/ titan
+#   ./scripts/agent-import.sh /tmp/titan-export.tar.gz titan
+#   ./scripts/agent-import.sh --source ./titan --target titan --no-build
+# =============================================================================
 
 set -euo pipefail
 
@@ -10,74 +34,219 @@ LOG_DIR="$RUNTIME_ROOT/logs"
 CONFIG_DIR="$RUNTIME_ROOT/config"
 DOCKER_COMPOSE_FILE="$RUNTIME_ROOT/docker-compose.yml"
 
-# Ensure directories exist
 mkdir -p "$AGENTS_DIR" "$LOG_DIR" "$CONFIG_DIR"
 
 source "$SCRIPT_DIR/helpers.sh"
 
-# Parse arguments
+# =============================================================================
+# DEFAULTS
+# =============================================================================
+
+SOURCE=""
+TARGET=""
+MODEL_OVERRIDE=""
+OVERWRITE=false
+NO_BUILD=false
+NO_COMPOSE=false
+QUIET=false
+TEMP_DIR=""
+
+# =============================================================================
+# HELPERS
+# =============================================================================
+
+info()    { [[ "$QUIET" == true ]] || echo "  $*"; }
+success() { echo "  [OK] $*"; }
+warn()    { echo "  [WARN] $*" >&2; }
+die()     { echo "  [ERROR] $*" >&2; exit 1; }
+
+cleanup() {
+    if [[ -n "$TEMP_DIR" && -d "$TEMP_DIR" ]]; then
+        rm -rf "$TEMP_DIR"
+    fi
+}
+trap cleanup EXIT
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") <source> <agent_id> [flags]
+       $(basename "$0") --source <path> --target <id> [flags]
+
+Import an agent from a directory or archive. Handles extraction, file copy
+(including all hidden files), docker-compose.yml registration, Docker build,
+and permission hardening.
+
+Positional:
+  <source>            Source directory or archive (.tar.gz / .zip / .tar.bz2)
+  <agent_id>          Agent ID to import as (3-16 chars, lowercase, a-z0-9_-)
+
+Flags:
+  --source <path>     Source path (alternative to positional)
+  --target <id>       Agent ID (alternative to positional)
+  --model <model>     Override model (default: read from imported config.yaml)
+  --overwrite         Replace existing agent (backs up first)
+  --no-build          Skip Docker image build step
+  --no-compose        Skip docker-compose.yml update
+  --quiet             Suppress non-error output
+  -h, --help          Show this help
+
+Examples:
+  $(basename "$0") /backups/titan/ titan
+  $(basename "$0") /tmp/titan-export.tar.gz titan
+  $(basename "$0") --source ./exported/titan --target titan --no-build
+  $(basename "$0") --source backup.tar.gz --target myagent --overwrite
+EOF
+    exit 0
+}
+
+# =============================================================================
+# ARGUMENT PARSING
+# =============================================================================
+
+POSITIONAL=()
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --source)
-            SOURCE=$2
-            shift 2 ;;
-        --target)
-            TARGET=$2
-            shift 2 ;;
-        *)
-            echo "Unknown option: $1"
-            exit 1 ;;
+        --source)      SOURCE="$2";        shift 2 ;;
+        --target)      TARGET="$2";        shift 2 ;;
+        --model)       MODEL_OVERRIDE="$2"; shift 2 ;;
+        --overwrite)   OVERWRITE=true;      shift ;;
+        --no-build)    NO_BUILD=true;       shift ;;
+        --no-compose)  NO_COMPOSE=true;     shift ;;
+        --quiet|-q)    QUIET=true;          shift ;;
+        -h|--help)     usage ;;
+        -*) die "Unknown flag: $1 (try --help)" ;;
+        *)  POSITIONAL+=("$1"); shift ;;
     esac
 done
 
-# Validate inputs
-if [ -z "${SOURCE:-}" ] || [ -z "${TARGET:-}" ]; then
-    echo "Error: Both source and target are required"
-    echo "Usage: $0 --source <source_path> --target <target_agent_id>"
-    exit 1
-fi
+# Accept positional args as fallback
+if [[ -z "$SOURCE" && ${#POSITIONAL[@]} -ge 1 ]]; then SOURCE="${POSITIONAL[0]}"; fi
+if [[ -z "$TARGET" && ${#POSITIONAL[@]} -ge 2 ]]; then TARGET="${POSITIONAL[1]}"; fi
 
-if ! validate_agent_id "$TARGET"; then
-    exit 1
-fi
+# =============================================================================
+# VALIDATION
+# =============================================================================
+
+[[ -z "$SOURCE" ]] && die "Source path is required. Usage: $(basename "$0") <source> <agent_id>"
+[[ -z "$TARGET" ]] && die "Agent ID is required. Usage: $(basename "$0") <source> <agent_id>"
+
+validate_agent_id "$TARGET" || exit 1
 
 if agent_exists "$TARGET"; then
-    echo "Error: Agent $TARGET already exists"
-    exit 1
+    if [[ "$OVERWRITE" == true ]]; then
+        BACKUP_PATH="$RUNTIME_ROOT/backups/agents/${TARGET}-pre-import-$(date +%Y%m%d-%H%M%S)"
+        warn "Agent '$TARGET' already exists — backing up to $BACKUP_PATH"
+        mkdir -p "$(dirname "$BACKUP_PATH")"
+        cp -ra "$AGENTS_DIR/$TARGET" "$BACKUP_PATH"
+        rm -rf "$AGENTS_DIR/$TARGET"
+    else
+        die "Agent '$TARGET' already exists. Use --overwrite to replace it."
+    fi
 fi
 
-if [ ! -d "$SOURCE" ]; then
-    echo "Error: Source directory $SOURCE does not exist"
-    exit 1
+# =============================================================================
+# STEP 1 — Resolve source (directory or archive)
+# =============================================================================
+
+echo ""
+echo "=== Importing agent: $TARGET ==="
+echo ""
+
+info "Source: $SOURCE"
+
+EXTRACT_DIR=""
+
+if [[ -d "$SOURCE" ]]; then
+    EXTRACT_DIR="$SOURCE"
+    info "Source type: directory"
+
+elif [[ -f "$SOURCE" ]]; then
+    TEMP_DIR="$(mktemp -d)"
+    info "Source type: archive — extracting..."
+
+    case "$SOURCE" in
+        *.tar.gz|*.tgz)
+            tar -xzf "$SOURCE" -C "$TEMP_DIR" || die "Failed to extract $SOURCE"
+            ;;
+        *.tar.bz2|*.tbz2)
+            tar -xjf "$SOURCE" -C "$TEMP_DIR" || die "Failed to extract $SOURCE"
+            ;;
+        *.tar)
+            tar -xf "$SOURCE" -C "$TEMP_DIR" || die "Failed to extract $SOURCE"
+            ;;
+        *.zip)
+            command -v unzip >/dev/null || die "'unzip' is required to extract .zip archives (apt install unzip)"
+            unzip -q "$SOURCE" -d "$TEMP_DIR" || die "Failed to extract $SOURCE"
+            ;;
+        *)
+            die "Unsupported archive format: $SOURCE (supported: .tar.gz .tgz .tar.bz2 .zip .tar)"
+            ;;
+    esac
+
+    # If the archive extracted to a single subdirectory, descend into it
+    EXTRACTED_CONTENTS=("$TEMP_DIR"/*/)
+    if [[ ${#EXTRACTED_CONTENTS[@]} -eq 1 && -d "${EXTRACTED_CONTENTS[0]}" ]]; then
+        EXTRACT_DIR="${EXTRACTED_CONTENTS[0]}"
+        info "Archive root: $(basename "$EXTRACT_DIR")"
+    else
+        EXTRACT_DIR="$TEMP_DIR"
+    fi
+
+else
+    die "Source not found: $SOURCE (must be a directory or archive file)"
 fi
 
-# Check Docker environment
-if ! check_docker; then
-    exit 1
+# =============================================================================
+# STEP 2 — Detect model from imported config
+# =============================================================================
+
+IMPORTED_MODEL="nous/mistral-large"
+
+if [[ -f "$EXTRACT_DIR/config.yaml" ]]; then
+    DETECTED=$(grep -E '^\s*model:' "$EXTRACT_DIR/config.yaml" | head -1 | sed 's/.*model:[[:space:]]*//' | tr -d '"'"'" | xargs)
+    if [[ -n "$DETECTED" ]]; then
+        IMPORTED_MODEL="$DETECTED"
+        info "Detected model from config.yaml: $IMPORTED_MODEL"
+    fi
+elif [[ -f "$EXTRACT_DIR/agent.json" ]]; then
+    DETECTED=$(grep -o '"model"[[:space:]]*:[[:space:]]*"[^"]*"' "$EXTRACT_DIR/agent.json" | head -1 | sed 's/.*"model"[[:space:]]*:[[:space:]]*"//' | tr -d '"')
+    if [[ -n "$DETECTED" ]]; then
+        IMPORTED_MODEL="$DETECTED"
+        info "Detected model from agent.json: $IMPORTED_MODEL"
+    fi
 fi
 
-# Import agent
-echo "Importing agent from $SOURCE to $TARGET..."
+# Apply override if given
+MODEL="${MODEL_OVERRIDE:-$IMPORTED_MODEL}"
+[[ -n "$MODEL_OVERRIDE" ]] && info "Model overridden to: $MODEL"
 
-# Create target structure
-create_agent_structure "$TARGET"
+# =============================================================================
+# STEP 3 — Copy all agent files (including hidden files/directories)
+# =============================================================================
 
-# Copy data from source to target (including hidden files/directories)
-# Copy everything except standard directories (which are created by create_agent_structure)
-if [ -d "$SOURCE" ]; then
-    # Copy all files and directories, including hidden ones
-    cp -ra "$SOURCE/." "$AGENTS_DIR/$TARGET/" || {
-        echo "Warning: Failed to copy some files from $SOURCE"
-    }
-fi
+info "Copying agent files..."
 
-# Create default config if not exists
-if [ ! -f "$AGENTS_DIR/$TARGET/config.yaml" ]; then
-    cat > "$AGENTS_DIR/$TARGET/config.yaml" <<EOL
+mkdir -p "$AGENTS_DIR/$TARGET"
+
+# The trailing /. on SOURCE ensures cp -ra copies all hidden files too
+cp -ra "$EXTRACT_DIR/." "$AGENTS_DIR/$TARGET/" 2>/dev/null || {
+    warn "Some files could not be copied (permissions?) — continuing"
+}
+
+success "Files copied to agents/$TARGET/"
+
+# =============================================================================
+# STEP 4 — Ensure required files exist (create defaults if missing)
+# =============================================================================
+
+# config.yaml
+if [[ ! -f "$AGENTS_DIR/$TARGET/config.yaml" ]]; then
+    info "No config.yaml found — creating default..."
+    cat > "$AGENTS_DIR/$TARGET/config.yaml" <<EOF
 agent:
   id: $TARGET
   name: $TARGET
-  model: "nous/mistral-large"
+  model: "$MODEL"
   personality: "imported"
   memory:
     enabled: true
@@ -87,41 +256,90 @@ agent:
   security:
     read_only: true
     cap_drop: true
-EOL
+EOF
 fi
 
-# Reuse functions from agent-create.sh
-update_docker_compose() {
-    local agent_id=$1
-    local model=$2
-    
-    # Create a temporary file
-    local temp_file=$(mktemp)
-    
-    # Check if agent service already exists
-    if grep -q "oc-$agent_id:" "$DOCKER_COMPOSE_FILE"; then
-        echo "Agent $agent_id already exists in docker-compose.yml"
-        return 0
+# SOUL.md (at agent root — required by lifecycle scripts)
+if [[ ! -f "$AGENTS_DIR/$TARGET/SOUL.md" ]]; then
+    # Try to find it in a data/ subdirectory
+    if [[ -f "$AGENTS_DIR/$TARGET/data/SOUL.md" ]]; then
+        cp "$AGENTS_DIR/$TARGET/data/SOUL.md" "$AGENTS_DIR/$TARGET/SOUL.md"
+    else
+        cat > "$AGENTS_DIR/$TARGET/SOUL.md" <<EOF
+# SOUL.md — $TARGET
+
+**Identity:** $TARGET
+**Purpose:** Imported agent
+**Model:** $MODEL
+EOF
     fi
-    
-    # Add agent service
-    cat >> "$temp_file" <<EOL
-  oc-$agent_id:
+fi
+
+# .env (must exist; preserve imported one if present)
+if [[ ! -f "$AGENTS_DIR/$TARGET/.env" ]]; then
+    touch "$AGENTS_DIR/$TARGET/.env"
+    info "Created empty .env — add TELEGRAM_BOT_TOKEN and API keys before starting"
+fi
+
+# Ensure required directories exist
+mkdir -p \
+    "$AGENTS_DIR/$TARGET/data" \
+    "$AGENTS_DIR/$TARGET/config" \
+    "$AGENTS_DIR/$TARGET/logs" \
+    "$AGENTS_DIR/$TARGET/skills" \
+    "$AGENTS_DIR/$TARGET/tools" \
+    "$AGENTS_DIR/$TARGET/memory" \
+    "$AGENTS_DIR/$TARGET/sessions" \
+    "$AGENTS_DIR/$TARGET/.secrets"
+
+success "Required directories and files verified"
+
+# =============================================================================
+# STEP 5 — Harden file permissions
+# =============================================================================
+
+chmod 700 "$AGENTS_DIR/$TARGET/.secrets" 2>/dev/null || true
+chmod 600 "$AGENTS_DIR/$TARGET/.env"     2>/dev/null || true
+
+success "Permissions hardened (.secrets/=700, .env=600)"
+
+# =============================================================================
+# STEP 6 — Register in docker-compose.yml
+# =============================================================================
+
+if [[ "$NO_COMPOSE" == true ]]; then
+    info "Skipping docker-compose.yml update (--no-compose)"
+elif [[ ! -f "$DOCKER_COMPOSE_FILE" ]]; then
+    warn "docker-compose.yml not found — skipping registration"
+else
+    if grep -q "container_name: oc-${TARGET}$" "$DOCKER_COMPOSE_FILE" 2>/dev/null; then
+        info "Agent $TARGET already registered in docker-compose.yml"
+    else
+        info "Adding agent to docker-compose.yml..."
+
+        # Build the service block as a variable
+        SERVICE_BLOCK="
+  # ---------------------------------------------------------------------------
+  # $TARGET (imported)
+  # ---------------------------------------------------------------------------
+  oc-${TARGET}:
     build:
       context: .
       dockerfile: Dockerfile.agent
       args:
-        AGENT_ID: $agent_id
-        MODEL: $model
-    container_name: oc-$agent_id
+        AGENT_ID: ${TARGET}
+        MODEL: ${MODEL}
+    image: hemlock/agent-${TARGET}:1.0.0
+    container_name: oc-${TARGET}
+    restart: unless-stopped
     environment:
-      - AGENT_ID=$agent_id
-      - MODEL=$model
+      - AGENT_ID=${TARGET}
+      - MODEL=${MODEL}
       - OPENCLAW_GATEWAY_URL=ws://openclaw-gateway:18789
       - OPENCLAW_GATEWAY_TOKEN=\${OPENCLAW_GATEWAY_TOKEN}
     volumes:
-      - $AGENTS_DIR/$agent_id/data:/app/data
-      - $AGENTS_DIR/$agent_id/config:/app/config
+      - ./agents/${TARGET}/data:/app/data
+      - ./agents/${TARGET}/config:/app/config
     networks:
       - agents_net
     cap_drop:
@@ -130,100 +348,85 @@ update_docker_compose() {
     tmpfs:
       - /tmp:size=64m
     depends_on:
-      - openclaw-gateway
-EOL
-    
-    # Merge with existing docker-compose.yml
-    if [ -f "$DOCKER_COMPOSE_FILE" ]; then
-        # Remove the last line (which should be "") and append the new service
-        head -n -1 "$DOCKER_COMPOSE_FILE" > "$temp_file"
-        cat >> "$temp_file" <<EOL
+      openclaw-gateway:
+        condition: service_healthy
+    healthcheck:
+      test: [\"CMD\", \"pgrep\", \"-x\", \"hermes\"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s"
 
-$(cat "$temp_file")
-EOL
+        # Insert the service block before the networks section using awk
+        # Matches the line that starts the networks block comment or the networks: key
+        awk -v block="$SERVICE_BLOCK" '
+            /^# ={5,}$/ && found_services && !inserted {
+                print block
+                inserted=1
+            }
+            /^networks:/ && !inserted {
+                print block
+                inserted=1
+            }
+            /^services:/ { found_services=1 }
+            { print }
+        ' "$DOCKER_COMPOSE_FILE" > "${DOCKER_COMPOSE_FILE}.tmp"
+
+        mv "${DOCKER_COMPOSE_FILE}.tmp" "$DOCKER_COMPOSE_FILE"
+        success "Registered oc-${TARGET} in docker-compose.yml"
     fi
-    
-    # Replace the original file
-    mv "$temp_file" "$DOCKER_COMPOSE_FILE"
-    
-    log "INFO" "Added agent $agent_id to docker-compose.yml"
-}
+fi
 
-build_agent_image() {
-    local agent_id=$1
-    
-    # Create Dockerfile.agent if it doesn't exist
-    if [ ! -f "$RUNTIME_ROOT/Dockerfile.agent" ]; then
-        cat > "$RUNTIME_ROOT/Dockerfile.agent" <<EOL
-# Hermes Agent Dockerfile
-FROM python:3.11-slim
+# =============================================================================
+# STEP 7 — Build Docker image
+# =============================================================================
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    curl git jq \
-    && rm -rf /var/lib/apt/lists/*
+if [[ "$NO_BUILD" == true ]]; then
+    info "Skipping Docker build (--no-build)"
+elif ! check_docker 2>/dev/null; then
+    warn "Docker not available — skipping image build"
+    warn "Run 'docker compose build oc-${TARGET}' when Docker is ready"
+else
+    info "Building Docker image for oc-${TARGET}..."
+    docker compose -f "$DOCKER_COMPOSE_FILE" build "oc-${TARGET}" 2>&1 || {
+        warn "Docker build failed — you can retry manually:"
+        warn "  docker compose build oc-${TARGET}"
+    }
+    success "Docker image built: oc-${TARGET}"
+fi
 
-# Install Hermes + OpenClaw client
-RUN pip install hermes-agent openclaw-client
+# =============================================================================
+# STEP 8 — Log and summarise
+# =============================================================================
 
-# Create agent directories
-RUN mkdir -p /app/{data,config,logs,skills,tools}
+log "INFO" "Agent $TARGET imported from $SOURCE (model: $MODEL)"
+agent_log "$TARGET" "INFO" "Imported from $SOURCE"
 
-# Copy entrypoint script
-COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+echo ""
+echo "=== Import complete: $TARGET ==="
+echo ""
 
-# Set environment variables
-ARG AGENT_ID
-ARG MODEL
-ENV AGENT_ID=\${AGENT_ID}
-ENV MODEL=\${MODEL}
-ENV OPENCLAW_GATEWAY_URL=ws://openclaw-gateway:18789
-ENV OPENCLAW_GATEWAY_TOKEN=\${OPENCLAW_GATEWAY_TOKEN}
-
-# Entrypoint
-ENTRYPOINT ["/app/entrypoint.sh"]
-EOL
+# Check for missing secrets and warn specifically
+if [[ -f "$AGENTS_DIR/$TARGET/.env" ]]; then
+    if ! grep -q "TELEGRAM_BOT_TOKEN" "$AGENTS_DIR/$TARGET/.env" 2>/dev/null; then
+        echo "  [!] TELEGRAM_BOT_TOKEN not set — add it before starting:"
+        echo "      echo 'TELEGRAM_BOT_TOKEN=<token>' >> agents/${TARGET}/.env"
+        echo ""
     fi
-    
-    # Create entrypoint.sh if it doesn't exist
-    if [ ! -f "$RUNTIME_ROOT/entrypoint.sh" ]; then
-        cat > "$RUNTIME_ROOT/entrypoint.sh" <<EOL
-#!/bin/bash
-set -euo pipefail
-
-# Connect to OpenClaw Gateway
-hermes gateway connect \\
-  --url "\$OPENCLAW_GATEWAY_URL" \\
-  --token "\$OPENCLAW_GATEWAY_TOKEN" &
-GATEWAY_PID=\$!
-
-# Start Hermes agent
-hermes --agent-id "\$AGENT_ID" --model "\$MODEL" --tui
-
-# Cleanup
-kill \$GATEWAY_PID
-EOL
-        chmod +x "$RUNTIME_ROOT/entrypoint.sh"
+    if ! grep -qE "NOUS_API_KEY|OPENROUTER_API_KEY|OPENAI_API_KEY|ANTHROPIC_API_KEY" "$AGENTS_DIR/$TARGET/.env" 2>/dev/null; then
+        echo "  [!] No LLM API key found — add one before starting:"
+        echo "      echo 'NOUS_API_KEY=<key>' >> agents/${TARGET}/.env"
+        echo ""
     fi
-    
-    # Build the image
-    docker-compose -f "$DOCKER_COMPOSE_FILE" build "oc-$agent_id"
-    
-    log "INFO" "Built agent image for $agent_id"
-}
+fi
 
-# Add agent to docker-compose.yml
-echo "Adding imported agent to docker-compose.yml..."
-update_docker_compose "$TARGET" "nous/mistral-large"
-
-# Build agent image
-echo "Building agent image..."
-build_agent_image "$TARGET"
-
-# Success
-log "INFO" "Agent $TARGET imported successfully from $SOURCE"
-agent_log "$TARGET" "INFO" "Agent imported from $SOURCE"
-
-echo "Agent $TARGET imported successfully!"
-echo "You can now start the agent with: $SCRIPT_DIR/agent-control.sh start $TARGET"
+echo "  Agent directory:  agents/${TARGET}/"
+echo "  Model:            $MODEL"
+echo "  Container name:   oc-${TARGET}"
+echo ""
+echo "  Next steps:"
+echo "    1. Add secrets if needed:  vim agents/${TARGET}/.env"
+echo "    2. Start the agent:        ./scripts/agent-control.sh start ${TARGET}"
+echo "    3. Or start all services:  docker compose up -d"
+echo "    4. Stream logs:            ./scripts/agent-logs.sh ${TARGET}"
+echo ""

@@ -670,19 +670,74 @@ Deletes an agent. Backs up first by default.
 
 ### `scripts/agent-import.sh`
 
-Import an agent from an external source. Uses `cp -ra "$SOURCE/." "$DEST/"` to preserve hidden files.
+Imports an agent from a directory or archive. Handles everything end-to-end: extraction, full file copy (including all hidden files), model detection, `docker-compose.yml` registration, Docker image build, and permission hardening.
 
 **Usage:**
 ```bash
-./scripts/agent-import.sh <source_path> <agent_id> [--overwrite]
+# Positional (recommended)
+./scripts/agent-import.sh <source> <agent_id>
+
+# Flag-based (alternative)
+./scripts/agent-import.sh --source <path> --target <id> [flags]
 ```
 
-**Supported sources:**
-- Directory path
-- `.tar.gz` archive (auto-extracted)
-- `.zip` archive (auto-extracted)
+**Examples:**
+```bash
+./scripts/agent-import.sh /backups/titan/ titan
+./scripts/agent-import.sh /tmp/titan-export.tar.gz titan
+./scripts/agent-import.sh --source ./titan --target titan --no-build
+./scripts/agent-import.sh --source backup.tar.gz --target myagent --overwrite
+```
 
-**Hidden file preservation:** Uses `cp -ra "$SOURCE/." "$DEST/"` pattern — the trailing `/.` ensures all hidden files (`.secrets/`, `.hermes/`, `.archive/`, `.backups/`, `.env`) are copied.
+**Flags:**
+
+| Flag | Effect |
+|------|--------|
+| `--source <path>` | Source directory or archive (alternative to positional) |
+| `--target <id>` | Agent ID to import as (alternative to positional) |
+| `--model <model>` | Override model (default: auto-detected from imported `config.yaml` or `agent.json`) |
+| `--overwrite` | Replace an existing agent — backs it up to `backups/agents/<id>-pre-import-<ts>/` first |
+| `--no-build` | Skip Docker image build (register in compose only) |
+| `--no-compose` | Skip `docker-compose.yml` update entirely |
+| `--quiet` | Suppress non-error output |
+| `-h`, `--help` | Show help |
+
+**Supported source formats:**
+- Directory (any path)
+- `.tar.gz` / `.tgz`
+- `.tar.bz2` / `.tbz2`
+- `.tar`
+- `.zip` (requires `unzip`)
+
+**What it does, step by step:**
+
+| Step | Action |
+|------|--------|
+| 1 | Resolve source: detect directory vs archive; auto-extract archives to temp dir; descend into single-subdir archives automatically |
+| 2 | Detect model from imported `config.yaml` (`model:` key) or `agent.json` (`"model"` field); apply `--model` override if given |
+| 3 | Copy all files with `cp -ra "$SOURCE/." "$DEST/"` — the trailing `/.` preserves every hidden file: `.secrets/`, `.hermes/`, `.archive/`, `.backups/`, `.env`, `.env.enc` |
+| 4 | Ensure required files exist: generate default `config.yaml`, `SOUL.md`, and empty `.env` only if they were not in the source |
+| 5 | Ensure required directories: `data/`, `config/`, `logs/`, `skills/`, `tools/`, `memory/`, `sessions/`, `.secrets/` |
+| 6 | Harden permissions: `.secrets/` → 700, `.env` → 600 |
+| 7 | Register in `docker-compose.yml`: inserts full service block (with bind mounts, cap_drop, read_only, tmpfs, healthcheck) before the networks section via `awk`; skips if already registered |
+| 8 | Build Docker image: `docker compose build oc-<id>`; warns if Docker unavailable rather than failing |
+| 9 | Warn about any missing `TELEGRAM_BOT_TOKEN` or LLM API keys in `.env`; print exact commands to fix |
+
+**After import:**
+```bash
+# Add secrets if not already in the imported .env
+echo 'TELEGRAM_BOT_TOKEN=<token>' >> agents/<id>/.env
+echo 'NOUS_API_KEY=<key>'         >> agents/<id>/.env
+
+# Start the agent
+./scripts/agent-control.sh start <id>
+
+# Or start everything
+docker compose up -d
+
+# Stream logs
+./scripts/agent-logs.sh <id>
+```
 
 ---
 
