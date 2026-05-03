@@ -1,0 +1,13 @@
+agent:
+  id: caa2-9649
+  name: Activate Agent 2
+  model: "nous/mistral-large"
+  personality: "default"
+  memory:
+    enabled: true
+    max_chars: 100000
+  tools:
+    enabled: true
+  security:
+    read_only: true
+    cap_drop: true

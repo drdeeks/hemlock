@@ -109,7 +109,7 @@ while [[ $# -gt 0 ]]; do
         --source)      SOURCE="$2";        shift 2 ;;
         --target)      TARGET="$2";        shift 2 ;;
         --model)       MODEL_OVERRIDE="$2"; shift 2 ;;
-        --overwrite)   OVERWRITE=true;      shift ;;
+        --overwrite|--force) OVERWRITE=true;  shift ;;
         --no-build)    NO_BUILD=true;       shift ;;
         --no-compose)  NO_COMPOSE=true;     shift ;;
         --quiet|-q)    QUIET=true;          shift ;;
