@@ -109,3 +109,10 @@ Agent unit-test-agent-708848 started at Sat Apr 25 06:31:09 PM UTC 2026
 [2026-05-03 03:47:44] [INFO] Agent utc-0034 created successfully
 [2026-05-03 03:48:10] [INFO] Agent utest-full-38352 created successfully
 [2026-05-03 03:48:10] [INFO] Agent utc-0034 created successfully
+[2026-05-03 04:00:47] [INFO] Agent exp-ag-39207 created successfully
+[2026-05-03 04:00:47] [INFO] Agent exp-ag-39207 exported successfully to /tmp/agent_import_export_test_39207/export
+[2026-05-03 04:00:48] [INFO] Agent rt-ag-39207 created successfully
+[2026-05-03 04:00:48] [INFO] Agent rt-ag-39207 exported successfully to /tmp/agent_import_export_test_39207/roundtrip
+[2026-05-03 04:00:50] [INFO] Agent nodock0849 imported from /tmp/nd_src_0849 (model: ollama/qwen3:0.6b)
+[2026-05-03 04:03:25] [INFO] Agent caa1-1003 created successfully
+[2026-05-03 04:03:26] [INFO] Agent caa2-1003 created successfully

@@ -204,7 +204,7 @@ create_agent() {
     echo "============================================="
     
     read -rp "Enter agent ID (e.g., mort): " agent_id
-    read -rp "Enter model (e.g., nous/mistral-large): " model
+    read -rp "Enter model (e.g., ollama/qwen3:0.6b): " model
     read -rp "Enter agent name [default: $agent_id]: " name
     name=${name:-$agent_id}
     
@@ -617,7 +617,7 @@ runtime:
     port: 18789
     token: "$(generate_random_token)"
   agents:
-    default_model: "nous/mistral-large"
+    default_model: "ollama/qwen3:0.6b"
     default_network: "agents_net"
   security:
     read_only: true

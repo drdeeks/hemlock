@@ -265,13 +265,13 @@ EOF
       dockerfile: Dockerfile.agent
       args:
         AGENT_ID: ${agent_id}
-        MODEL: nous/mistral-large
+        MODEL: ollama/qwen3:0.6b
         CREW_CHANNEL: ${crew_name}
     container_name: oc-${crew_name}-${agent_id}
     restart: unless-stopped
     environment:
       - AGENT_ID=${agent_id}
-      - MODEL=nous/mistral-large
+      - MODEL=ollama/qwen3:0.6b
       - CREW_CHANNEL=${crew_name}
       - OPENCLAW_GATEWAY_URL=ws://openclaw-gateway:18789
       - OPENCLAW_GATEWAY_TOKEN=\${OPENCLAW_GATEWAY_TOKEN}

@@ -176,7 +176,7 @@ create_default_config() {
 agent:
   id: $agent_name
   name: $agent_name
-  model: "nous/mistral-large"
+  model: "ollama/qwen3:0.6b"
   personality: "default"
   memory:
     enabled: true
@@ -246,7 +246,7 @@ add_agent_to_compose() {
     local agent_id
     agent_id=$(grep "^  id:" "$agent_config" 2>/dev/null | head -1 | awk '{print $2}' || echo "$agent_name")
     local model
-    model=$(grep "^  model:" "$agent_config" 2>/dev/null | head -1 | awk '{print $2}' | tr -d '"' || echo "nous/mistral-large")
+    model=$(grep "^  model:" "$agent_config" 2>/dev/null | head -1 | awk '{print $2}' | tr -d '"' || echo "ollama/qwen3:0.6b")
     
     # Append agent service to docker-compose.yml
     cat >> docker-compose.yml <<EOF

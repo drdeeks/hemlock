@@ -66,7 +66,7 @@ export_agent() {
     
     # Get model from config
     local model
-    model=$(grep "^  model:" "$agent_dir/config.yaml" 2>/dev/null | head -1 | awk '{print $2}' | tr -d '"' || echo "nous/mistral-large")
+    model=$(grep "^  model:" "$agent_dir/config.yaml" 2>/dev/null | head -1 | awk '{print $2}' | tr -d '"' || echo "ollama/qwen3:0.6b")
     
     # Determine image name and tags
     if [[ -z "$tag" ]]; then

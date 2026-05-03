@@ -200,7 +200,7 @@ fi
 # STEP 2 — Detect model from imported config
 # =============================================================================
 
-IMPORTED_MODEL="nous/mistral-large"
+IMPORTED_MODEL="ollama/qwen3:0.6b"
 
 if [[ -f "$EXTRACT_DIR/config.yaml" ]]; then
     DETECTED=$(grep -E '^\s*model:' "$EXTRACT_DIR/config.yaml" | head -1 | sed 's/.*model:[[:space:]]*//' | tr -d '"'"'" | xargs)

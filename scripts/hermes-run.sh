@@ -50,7 +50,7 @@ Options:
 
 Examples:
     $0 mort
-    $0 mort --detach --model nous/mistral-large
+    $0 mort --detach --model ollama/qwen3:0.6b
     $0 mort --env MODEL_TEMPERATURE=0.5
 
 EOF
@@ -189,7 +189,7 @@ main() {
     
     # Set defaults
     backend="${backend:-ollama}"
-    model="${model:-${default_model:-nous/mistral-large}}"
+    model="${model:-${default_model:-ollama/qwen3:0.6b}}"
     
     log "=========================================="
     log "Launching Hermes Agent: ${AGENT_ID}"

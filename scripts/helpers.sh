@@ -75,7 +75,7 @@ create_agent_structure() {
 agent:
   id: $agent_id
   name: $agent_id
-  model: "nous/mistral-large"
+  model: "ollama/qwen3:0.6b"
   personality: "default"
   memory:
     enabled: true

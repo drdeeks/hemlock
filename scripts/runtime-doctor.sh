@@ -149,7 +149,7 @@ runtime:
     port: 18789
     token: "$(generate_random_token)"
   agents:
-    default_model: "nous/mistral-large"
+    default_model: "ollama/qwen3:0.6b"
     default_network: "agents_net"
   security:
     read_only: true

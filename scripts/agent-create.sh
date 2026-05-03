@@ -20,7 +20,7 @@ source "$SCRIPT_DIR/helpers.sh"
 
 # Default values
 AGENT_ID=""
-MODEL="nous/mistral-large"
+MODEL="ollama/qwen3:0.6b"
 NAME=""
 PERSONALITY="default"
 

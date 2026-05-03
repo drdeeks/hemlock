@@ -47,7 +47,7 @@ build_framework() {
 
 build_agent() {
     local agent_id="${1:-test-e2e-agent}"
-    local model="${2:-${DEFAULT_AGENT_MODEL:-nous/mistral-large}}"
+    local model="${2:-${DEFAULT_AGENT_MODEL:-ollama/qwen3:0.6b}}"
     
     log "Building agent image for ${agent_id}..."
     
