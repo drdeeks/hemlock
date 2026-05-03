@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
 set -e
 
-TOKEN="${1:-$GITHUB_TOKEN}"
-
-if [[ -z "$TOKEN" ]]; then
-  echo "Usage: bash scripts/fix-lfs-push.sh <your-github-PAT>"
-  echo "Generate one at: https://github.com/settings/tokens (needs 'repo' scope)"
+if [[ -z "$GITHUB_TOKEN" ]]; then
+  echo "Error: GITHUB_TOKEN environment variable is not set."
+  echo "Add it in Replit Secrets (Tools > Secrets) then re-run."
   exit 1
 fi
 
-REPO_URL="https://${TOKEN}@github.com/drdeeks/hemlock.git"
+REPO_URL="https://${GITHUB_TOKEN}@github.com/drdeeks/hemlock.git"
 
 echo "=== Pushing cleaned history to gamma ==="
 git push "$REPO_URL" main:gamma --force
