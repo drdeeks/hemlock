@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 set -e
 
-echo "=== Removing model files from git history ==="
-git filter-branch --index-filter \
-  'git rm --cached --ignore-unmatch -r scripts/models/ dta-*.tar.gz export-agent.tar.gz' \
-  HEAD~5..HEAD
-
+echo "=== GitHub Personal Access Token required ==="
+echo "Generate one at: https://github.com/settings/tokens"
+echo "(Needs 'repo' scope)"
 echo ""
+read -rsp "Paste your PAT (input hidden): " GH_TOKEN
+echo ""
+
+REPO_URL="https://${GH_TOKEN}@github.com/drdeeks/hemlock.git"
+
 echo "=== Pushing cleaned history to gamma ==="
-git push origin main:gamma --force
+git push "$REPO_URL" main:gamma --force
 
 echo ""
 echo "=== Done. Gamma branch is clean (no LFS objects). ==="
