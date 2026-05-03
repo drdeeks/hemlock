@@ -9,8 +9,8 @@ fi
 
 REPO_URL="https://${GITHUB_TOKEN}@github.com/drdeeks/hemlock.git"
 
-echo "=== Pushing cleaned history to gamma ==="
-git push "$REPO_URL" main:gamma --force
+echo "=== Pushing cleaned history to main ==="
+git push "$REPO_URL" main:main --force
 
 echo ""
-echo "=== Done. Gamma branch is clean (no LFS objects). ==="
+echo "=== Done. ==="
