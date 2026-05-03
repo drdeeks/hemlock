@@ -7,10 +7,14 @@ if [[ -z "$GITHUB_TOKEN" ]]; then
   exit 1
 fi
 
-REPO_URL="https://${GITHUB_TOKEN}@github.com/drdeeks/hemlock.git"
+REPO_URL="https://drdeeks:${GITHUB_TOKEN}@github.com/drdeeks/hemlock.git"
 
 echo "=== Pushing cleaned history to main ==="
-git push "$REPO_URL" main:main --force
+GIT_ASKPASS=true \
+GIT_TERMINAL_PROMPT=0 \
+GIT_CONFIG_NOSYSTEM=1 \
+  git -c credential.helper='' \
+      push "$REPO_URL" main:main --force
 
 echo ""
 echo "=== Done. ==="
