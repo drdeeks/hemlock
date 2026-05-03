@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 set -e
 
-echo "=== GitHub Personal Access Token required ==="
-echo "Generate one at: https://github.com/settings/tokens"
-echo "(Needs 'repo' scope)"
-echo ""
-read -rsp "Paste your PAT (input hidden): " GH_TOKEN
-echo ""
+TOKEN="${1:-$GITHUB_TOKEN}"
 
-REPO_URL="https://${GH_TOKEN}@github.com/drdeeks/hemlock.git"
+if [[ -z "$TOKEN" ]]; then
+  echo "Usage: bash scripts/fix-lfs-push.sh <your-github-PAT>"
+  echo "Generate one at: https://github.com/settings/tokens (needs 'repo' scope)"
+  exit 1
+fi
+
+REPO_URL="https://${TOKEN}@github.com/drdeeks/hemlock.git"
 
 echo "=== Pushing cleaned history to gamma ==="
 git push "$REPO_URL" main:gamma --force
