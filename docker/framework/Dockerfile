@@ -30,7 +30,11 @@ COPY docker/openclaw-runtime/ /opt/openclaw-runtime/
 # Install Python dependencies
 RUN pip install --no-cache-dir \
     /opt/openclaw-runtime \
-    /opt/hermes
+    /opt/hermes \
+    pyyaml \
+    python-dotenv \
+    python-telegram-bot \
+    mcp
 
 # Set working directory
 WORKDIR /srv/framework
