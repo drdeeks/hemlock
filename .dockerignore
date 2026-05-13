@@ -124,7 +124,6 @@ htmlcov/
 # Docker Files (prevent circular builds)
 # -----------------------------------------------------------------------------
 Dockerfile*
-docker-compose*.yml
 docker-compose*.yaml
 docker/*.yml
 docker/*.yaml

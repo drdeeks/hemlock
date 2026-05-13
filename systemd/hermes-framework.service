@@ -1,0 +1,45 @@
+[Unit]
+Description=Hermes/OpenClaw Framework Gateway
+After=network.target
+
+[Service]
+Type=simple
+User=hermes
+Group=hermes
+WorkingDirectory=/srv/framework
+ExecStart=/usr/bin/python -m hermes.gateway.run
+Restart=on-failure
+RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Environment
+Environment=HERMES_HOME=/var/lib/hermes
+EnvironmentFile=-/etc/hermes/hermes.env
+
+# Permissions
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+
+# Resource limits
+MemoryLimit=2G
+CPUQuota=80%
+# Limit number of file descriptors
+LimitNOFILE=65536
+# Limit number of processes
+LimitNPROC=100
+
+# Security
+CapabilityBoundingSet=CAP_SYS_TIME CAP_SYS_RESOURCE
+AmbientCapabilities=CAP_SYS_TIME
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+
+[Install]
+WantedBy=multi-user.target

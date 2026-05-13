@@ -13,7 +13,11 @@
 #   make push                  # Build and push all images to registry
 # =============================================================================
 
-.PHONY: help build up down clean test export import push pull logs shell
+.PHONY: help build up down clean test export import push pull logs shell \
+        build-framework build-agents build-agent build-crew export-agent \
+        export-crews export-crew import-crew import-agent push-crew pull \
+        logs-service shell-service ps images clean-all restart up-logs \
+        health validate status env
 
 # =============================================================================
 # Configuration
@@ -29,37 +33,49 @@ help:
 	@echo ""
 	@echo "Available commands:"
 	@echo ""
+	@echo "BUILD:"
 	@echo "  build                    # Build all Docker images"
-	@echo "  up                      # Start all services (daemon mode)"
-	@echo "  up-logs                 # Start all services with logs"
-	@echo "  down                    # Stop all services"
-	@echo "  restart                 # Restart all services"
-	@echo "  clean                   # Remove containers, networks, volumes"
+	@echo "  build-framework          # Build only framework image"
+	@echo "  build-agents             # Build all agent images"
+	@echo "  build-agent AGENT_ID=<id> # Build specific agent image"
+	@echo "  build-crew CREW_ID=<id>  # Build specific crew image"
 	@echo ""
-	@echo "  build-framework         # Build only framework image"
-	@echo "  build-agents            # Build all agent images"
-	@echo "  build-agent AGENT_ID    # Build specific agent image"
+	@echo "ORCHESTRATION:"
+	@echo "  up                       # Start all services (daemon mode)"
+	@echo "  up-logs                  # Start all services with logs"
+	@echo "  down                     # Stop all services"
+	@echo "  restart                  # Restart all services"
 	@echo ""
-	@echo "  export                  # Export all agents as Docker images"
-	@echo "  export-agent AGENT_ID   # Export specific agent"
-	@echo "  import IMAGE             # Import agent from Docker image"
+	@echo "CLEANUP:"
+	@echo "  clean                    # Remove containers, networks, volumes"
+	@echo "  clean-all                # Full system prune (Docker)"
 	@echo ""
-	@echo "  export-crews            # Export all crews as Docker images"
-	@echo "  export-crew CREW        # Export specific crew"
-	@echo "  import-crew IMAGE       # Import crew from Docker image"
-	@echo "  build-crew CREW         # Build crew Docker image"
-	@echo "  push-crew IMAGE         # Push crew image to registry"
+	@echo "EXPORT/IMPORT:"
+	@echo "  export                   # Export all agents as Docker images"
+	@echo "  export-agent AGENT_ID=<id> # Export specific agent"
+	@echo "  export-crews             # Export all crews as Docker images"
+	@echo "  export-crew CREW_ID=<id> # Export specific crew"
+	@echo "  import IMAGE=<image>     # Import agent from Docker image"
+	@echo "  import-crew IMAGE=<image> # Import crew from Docker image"
 	@echo ""
-	@echo "  push                    # Build and push all images to registry"
-	@echo "  pull                    # Pull all images from registry"
+	@echo "REGISTRY:"
+	@echo "  push                     # Build and push all images to registry"
+	@echo "  push-crew IMAGE=<image>  # Push crew image to registry"
+	@echo "  pull                     # Pull all images from registry"
 	@echo ""
-	@echo "  logs                    # Show all service logs"
-	@echo "  logs-service SERVICE    # Show logs for specific service"
-	@echo "  shell-service SERVICE   # Open shell in running service"
-	@echo "  ps                      # List running containers"
-	@echo "  images                  # List Docker images"
+	@echo "DEBUGGING:"
+	@echo "  logs                     # Show all service logs"
+	@echo "  logs-service SERVICE=<svc> # Show logs for specific service"
+	@echo "  shell-service SERVICE=<svc> # Open shell in running service"
+	@echo "  ps                       # List running containers"
+	@echo "  images                   # List Docker images"
+	@echo "  status                   # Show framework status"
+	@echo "  health                   # Check service health"
 	@echo ""
-	@echo "  test                    # Run health checks"
+	@echo "VALIDATION:"
+	@echo "  test                     # Run health checks"
+	@echo "  validate                 # Validate docker-compose configuration"
+	@echo "  env                      # Show environment template"
 	@echo ""
 
 # =============================================================================
@@ -79,12 +95,27 @@ build-agents:
 	@./scripts/docker/build-images.sh agents
 
 build-agent:
-	@echo "Building agent image: $@"
-	@./scripts/docker/build-images.sh agent $@
+	@if [ -z "$(AGENT_ID)" ]; then \
+		echo "Error: AGENT_ID is required"; \
+		echo "Usage: make build-agent AGENT_ID=my-agent"; \
+		exit 1; \
+	fi
+	@echo "Building agent image: $(AGENT_ID)..."
+	@$(DOCKER) build -t "openclaw/agent-$(AGENT_ID):latest" \
+		--build-arg AGENT_ID=$(AGENT_ID) \
+		-f Dockerfile.agent .
+
 
 build-crew:
-	@echo "Building crew image: $@"
-	@docker build -t "crew-$@:1.0.0" -t "crew-$@:latest" -f Dockerfile.crew --build-arg CREW_ID=$@ .
+	@if [ -z "$(CREW_ID)" ]; then \
+		echo "Error: CREW_ID is required"; \
+		echo "Usage: make build-crew CREW_ID=my-crew"; \
+		exit 1; \
+	fi
+	@echo "Building crew image: $(CREW_ID)..."
+	@$(DOCKER) build -t "openclaw/crew-$(CREW_ID):1.0.0" -t "openclaw/crew-$(CREW_ID):latest" \
+		-f Dockerfile.crew --build-arg CREW_ID=$(CREW_ID) .
+
 
 # =============================================================================
 # Docker Compose Commands
@@ -195,3 +226,25 @@ images:
 test:
 	@echo "Running health checks..."
 	@$(DOCKER_COMPOSE) -f docker-compose.yml ps -q | xargs -I {} docker inspect -f '{{.Name}}: {{.State.Health.Status}}' {} || true
+
+# =============================================================================
+# Additional Useful Commands
+# =============================================================================
+
+health:
+	@echo "Checking service health..."
+	@$(DOCKER_COMPOSE) -f docker-compose.yml ps
+
+status:
+	@echo "Framework status:"
+	@$(DOCKER_COMPOSE) -f docker-compose.yml ps
+
+env:
+	@echo "Environment variables for Hemlock:"
+	@grep -v '^#' .env.template 2>/dev/null || echo "Note: .env.template not found"
+
+validate:
+	@echo "Validating docker-compose.yml..."
+	@docker-compose config -f docker-compose.yml > /dev/null && echo "✅ Configuration valid" || echo "❌ Configuration invalid"
+
+.DEFAULT_GOAL := help

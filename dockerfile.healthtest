@@ -1,0 +1,4 @@
+FROM python:3.11-slim
+COPY health/imports/imports_validator.py /health/imports/
+RUN chmod +x /health/imports/imports_validator.py
+CMD ["ls", "-la", "/health/imports/"]

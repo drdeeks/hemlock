@@ -199,3 +199,8 @@ development.env
 !plugins/*/plugin.yaml
 !plugins/*/plugin.yml
 !Dockerfile
+
+# Development overrides with secrets - NEVER commit these
+docker-compose.override.yml
+docker/docker-compose.override.yml
+docker/docker-compose.local.yml

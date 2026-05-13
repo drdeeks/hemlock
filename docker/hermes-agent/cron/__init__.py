@@ -1,42 +1,41 @@
 """
-Cron job scheduling system for Hermes Agent.
-
-This module provides scheduled task execution, allowing the agent to:
-- Run automated tasks on schedules (cron expressions, intervals, one-shot)
-- Self-schedule reminders and follow-up tasks
-- Execute tasks in isolated sessions (no prior context)
-
-Cron jobs are executed automatically by the gateway daemon:
-    hermes gateway install    # Install as a user service
-    sudo hermes gateway install --system  # Linux servers: boot-time system service
-    hermes gateway            # Or run in foreground
-
-The gateway ticks the scheduler every 60 seconds. A file lock prevents
-duplicate execution if multiple processes overlap.
+Hermes cron subsystem stub.
+External supervisor (OpenClaw) owns scheduling.
+This module provides no-op implementations to prevent import errors.
 """
+import logging
 
-from cron.jobs import (
-    create_job,
-    get_job,
-    list_jobs,
-    remove_job,
-    update_job,
-    pause_job,
-    resume_job,
-    trigger_job,
-    JOBS_FILE,
-)
-from cron.scheduler import tick
+logger = logging.getLogger(__name__)
 
-__all__ = [
-    "create_job",
-    "get_job", 
-    "list_jobs",
-    "remove_job",
-    "update_job",
-    "pause_job",
-    "resume_job",
-    "trigger_job",
-    "tick",
-    "JOBS_FILE",
-]
+
+def __getattr__(name):
+    """Provide no-op implementations for all cron module imports."""
+    logger.warning("Hermes cron subsystem disabled; external supervisor owns scheduling")
+    
+    # Return no-op callables for any attribute
+    if name in ('jobs', 'scheduler'):
+        return _CronModuleStub(name)
+    
+    def noop(*args, **kwargs):
+        return None
+    
+    return noop
+
+
+class _CronModuleStub:
+    """Stub module that provides no-op implementations for all attributes."""
+    
+    def __init__(self, module_name):
+        self._module_name = module_name
+    
+    def __getattr__(self, name):
+        def noop(*args, **kwargs):
+            logger = logging.getLogger(__name__)
+            logger.debug(f"Cron {self._module_name}.{name} called but disabled")
+            # Return sensible defaults for common patterns
+            if name in ('list_jobs', 'get_job'):
+                return []
+            if name == 'parse_schedule':
+                return lambda x: x  # Identity function
+            return None
+        return noop

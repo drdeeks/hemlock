@@ -1,43 +1,28 @@
-FROM python:3.11-slim
+FROM python:3.11-slim AS builder
 
-# System deps — Node.js, ffmpeg, build tools, Java
-RUN apt-get update && apt-get install -y \
-    curl git jq ffmpeg \
-    build-essential cmake \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y nodejs \
-    && rm -rf /var/lib/apt/lists/*
+WORKDIR /opt/openclaw
 
-# Create non-root user matching host UID/GID (prevents root-owned files on bind mounts)
-ARG USER_ID=1000
-ARG GROUP_ID=1000
-RUN groupadd -g ${GROUP_ID} agent 2>/dev/null || true \
-    && useradd -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash agent 2>/dev/null || true
+# Copy Hermes runtime
+COPY docker/hermes-agent /opt/hermes
 
-# Python packages — hermes-agent + common skill dependencies
-COPY --chown=agent:agent hermes-agent/ /app/hermes-agent/
-WORKDIR /app/hermes-agent
-RUN pip install --no-cache-dir -e "." \
-    && pip install --no-cache-dir \
-        pyyaml \
-        python-telegram-bot \
-        requests \
-        Pillow \
-        eth_account \
-        defusedxml
+# Allow root runtime imports
+ENV PYTHONPATH="/opt/hermes:${PYTHONPATH}"
 
-# Apply patches: !command execution, /models command
-COPY --chown=agent:agent patches/ /app/patches/
-RUN python3 /app/patches/add_extras.py
+# Install editable CLI/runtime bindings
+RUN pip install --no-cache-dir -e /opt/hermes/hermes_cli
 
-# Verify installations
-RUN python3 -c "import requests, PIL, yaml; print('Python: OK')" \
-    && node --version && npm --version \
-    && ffmpeg -version | head -1
+# Optional OpenClaw runtime installation
+COPY docker/openclaw-runtime /opt/openclaw-runtime
 
-COPY --chown=agent:agent entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+RUN pip install --no-cache-dir /opt/openclaw-runtime || true
 
-WORKDIR /app
-USER agent
-ENTRYPOINT ["/app/entrypoint.sh"]
+FROM python:3.11-slim AS framework
+
+WORKDIR /srv/framework
+
+COPY --from=builder /usr/local /usr/local
+COPY --from=builder /opt/hermes /opt/hermes
+
+ENV PYTHONPATH="/opt/hermes:${PYTHONPATH}"
+
+CMD ["python", "/srv/framework/runtime/openclaw_supervisor.py"]

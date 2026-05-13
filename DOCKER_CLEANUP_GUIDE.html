@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Hemlock Framework: Docker Cleanup & Best Practices</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2em; }
+    h1, h2, h3 { color: #2c3e50; }
+    code, pre { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; }
+    ul { margin-bottom: 1em; }
+    .section { margin-bottom: 2em; }
+  </style>
+</head>
+<body>
+  <h1>Hemlock Framework: Docker Cleanup & Best Practices</h1>
+
+  <div class="section">
+    <h2>Overview</h2>
+    <p>
+      The Hemlock core framework image must always include the OpenClaw gateway, Hermes MCP (agent brain/loop, auto-learning), and a shared read-only <code>skills/</code> directory. Each agent/crew is an independent container with its own persistent volume, mounted at runtime. This ensures the framework is always ready, and agent/crew state is isolated and portable.
+    </p>
+  </div>
+
+  <div class="section">
+    <h2>Required Changes</h2>
+    <ul>
+      <li><b>Root Dockerfiles:</b> Only bake in the gateway, MCP, agent loop, entrypoint, and shared skills. <b>Do not</b> copy agent/crew data into the image.</li>
+      <li><b>docker/ and docker/hermes-agent/:</b> Remove all test scripts, benchmarks, datagen, optional skills/scripts not used, and docs. Keep only Hermes agent code, MCP, entrypoint, patches, and shared skills.</li>
+      <li><b>Entrypoint:</b> Must dynamically detect and initialize agent/crew data at runtime, not at build time.</li>
+      <li><b>Volumes:</b> Each agent/crew gets its own persistent volume, mounted at runtime, and only removed manually by the user.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>How to Accomplish It</h2>
+    <ol>
+      <li>Update your <code>Dockerfile</code> to <b>not</b> copy agent/crew data. Only copy code, entrypoint, and skills.</li>
+      <li>Prune <code>docker/</code> and <code>docker/hermes-agent/</code> to remove unnecessary files (tests, docs, unused scripts).</li>
+      <li>Ensure your <code>entrypoint.sh</code> scans for agent/crew directories at runtime and initializes them if needed.</li>
+      <li>When running containers, mount agent/crew directories as volumes:<br>
+        <code>docker run -v /host/agents/agent123:/data/agents/agent123 ...</code>
+      </li>
+      <li>To remove an agent/crew, manually delete its volume/directory from the host.</li>
+    </ol>
+  </div>
+
+  <div class="section">
+    <h2>Why These Changes Are Correct</h2>
+    <ul>
+      <li>Ensures the framework is always ready to accept/import any agent or crew without rebuilding the image.</li>
+      <li>Keeps agent/crew state isolated, persistent, and portable.</li>
+      <li>Reduces image size and attack surface by removing unnecessary files.</li>
+      <li>Follows Docker best practices for separation of code and data.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>Examples & Templates</h2>
+    <h3>Minimal Dockerfile (root)</h3>
+    <pre><code>FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl git jq build-essential && rm -rf /var/lib/apt/lists/*
+
+# Copy Hermes agent and OpenClaw gateway code
+COPY docker/hermes-agent /app/hermes-agent
+COPY entrypoint.sh /app/entrypoint.sh
+COPY skills/ /app/skills/
+COPY patches/ /app/patches/
+
+WORKDIR /app
+RUN pip install --no-cache-dir ./hermes-agent
+RUN python3 /app/patches/add_extras.py
+RUN chmod +x /app/entrypoint.sh
+
+ENTRYPOINT ["/app/entrypoint.sh"]
+</code></pre>
+
+    <h3>Minimal Entrypoint Logic</h3>
+    <pre><code>#!/bin/bash
+# Dynamically detect agent/crew ID from mounted volume or environment
+if [ -z "$AGENT_ID" ]; then
+  # Try to infer from mounted directories (example: first subdir in /data/agents)
+  AGENT_ID=$(ls /data/agents | head -n 1)
+fi
+HERMES_HOME="/data/agents/${AGENT_ID}"
+mkdir -p "$HERMES_HOME"
+# ... (rest of init logic)
+python3 -m hermes_cli.main gateway run &
+if [ -f "/app/agent_brain_mcp.py" ]; then
+  python3 /app/agent_brain_mcp.py --brain &
+fi
+wait
+</code></pre>
+
+    <h3>Docker Run Example</h3>
+    <pre><code>docker run -d \
+  -v /host/agents/<agent_id>:/data/agents/<agent_id> \
+  -v /host/skills:/app/skills:ro \
+  -e AGENT_ID=<agent_id> \
+  openclaw/framework:latest
+</code></pre>
+
+    <h3>Pruning Unnecessary Files</h3>
+    <pre><code># Remove tests, docs, and unused scripts
+rm -rf docker/hermes-agent/tests
+rm -rf docker/hermes-agent/benchmarks
+rm -rf docker/hermes-agent/datagen*
+rm -rf docker/hermes-agent/docs
+rm -rf docker/hermes-agent/optional-skills
+</code></pre>
+  </div>
+
+</body>
+</html>

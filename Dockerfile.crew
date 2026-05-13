@@ -46,13 +46,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # =============================================================================
-# Install OpenClaw components
+# Install OpenClaw components from local docker/ directory
 # =============================================================================
+COPY docker/hermes-agent /tmp/hermes-agent
+COPY docker/openclaw-runtime /tmp/openclaw-runtime
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir \
-    hermes-agent==0.15.0 \
-    openclaw-client==0.15.0 \
-    openclaw==0.15.0
+    pip install --no-cache-dir /tmp/hermes-agent && \
+    pip install --no-cache-dir /tmp/openclaw-runtime && \
+    rm -rf /tmp/hermes-agent /tmp/openclaw-runtime
 
 # =============================================================================
 # Create crew directory structure
