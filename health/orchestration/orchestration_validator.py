@@ -14,14 +14,15 @@ def test_orchestration():
         print("✓ Process registry accessible")
         
         # Check for skill manager (if exists)
-        skill_manager_path = '/opt/hermes/tools/skill_manager_tool.py'
+        hermes_root = os.getenv('HERMES_HOME', '/opt/hermes')
+        skill_manager_path = f'{hermes_root}/tools/skill_manager_tool.py'
         if os.path.exists(skill_manager_path):
             print("✓ Skill manager tool found")
         else:
             print("⚠ Skill manager tool not found")
             
         # Check for MCP files
-        mcp_file = '/opt/hermes/agent_brain_mcp.py'
+        mcp_file = f'{hermes_root}/agent_brain_mcp.py'
         if os.path.exists(mcp_file):
             print("✓ MCP brain file found")
         else:

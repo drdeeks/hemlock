@@ -1,11 +1,11 @@
 #!/bin/bash
 # Hemlock Snapshot Helper Script
-# Creates snapshots and automatically copies them to /home/drdeek/downloads/hemlock_snaps/
+# Creates snapshots and automatically copies them to downloads directory
 
 set -e
 
-HEMLOCK_DIR="/home/drdeek/projects/hemlock"
-SNAPS_DIR="/home/drdeek/downloads/hemlock_snaps"
+HEMLOCK_DIR="${HEMLOCK_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
+SNAPS_DIR="${SNAPS_DIR:-$HOME/downloads/hemlock_snaps}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
 # Ensure snaps directory exists

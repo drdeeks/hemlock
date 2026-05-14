@@ -1,0 +1,20 @@
+{
+  "id": "test_test_user",
+  "created_at": "2026-05-13T17:27:10.757141",
+  "updated_at": "2026-05-13T17:27:10.762898",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Hello, this is a test message",
+      "platform": "test",
+      "timestamp": "2026-05-13T17:27:10.758033"
+    },
+    {
+      "role": "assistant",
+      "content": "Received: Hello, this is a test message\n\n[System: Keep responses concise and focused.]",
+      "timestamp": "2026-05-13T17:27:10.762873"
+    }
+  ],
+  "context": {},
+  "metadata": {}
+}

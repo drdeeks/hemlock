@@ -1,0 +1,29 @@
+{
+  "skills": [
+    {
+      "id": "skill_0_20260513172431",
+      "registered_at": "2026-05-13T17:24:31.307951",
+      "status": "active",
+      "name": "evolution_test",
+      "type": "test",
+      "source": "test",
+      "validated_at": "2026-05-13T17:24:31.307753",
+      "validation_result": {
+        "success": true,
+        "output": {
+          "result": {
+            "result": "test"
+          },
+          "status": "success"
+        },
+        "error": null,
+        "execution_time": 0.100659,
+        "resource_usage": {},
+        "timestamp": "2026-05-13T17:24:31.206900"
+      }
+    }
+  ],
+  "metadata": {
+    "created_at": "2026-05-13T17:24:31.205716"
+  }
+}

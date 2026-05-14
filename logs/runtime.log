@@ -116,3 +116,10 @@ Agent unit-test-agent-708848 started at Sat Apr 25 06:31:09 PM UTC 2026
 [2026-05-03 04:00:50] [INFO] Agent nodock0849 imported from /tmp/nd_src_0849 (model: ollama/qwen3:0.6b)
 [2026-05-03 04:03:25] [INFO] Agent caa1-1003 created successfully
 [2026-05-03 04:03:26] [INFO] Agent caa2-1003 created successfully
+[2026-05-13 22:58:18] [INFO] Agent jack exported to /tmp/jack-standard (mode: STANDARD, categories: CORE_IDENTITY,TOOLS,SKILLS)
+[2026-05-13 22:58:18] [INFO] Agent jack exported to /tmp/jack-minimal (mode: MINIMAL, categories: CORE_IDENTITY)
+[2026-05-13 22:58:33] [INFO] Agent jack exported to /tmp/jack-custom (mode: CUSTOM, categories: CORE_IDENTITY,MEMORY,RUNTIME)
+[2026-05-13 22:58:53] [INFO] Agent jack exported to /tmp/jack-full (mode: FULL, categories: CORE_IDENTITY,TOOLS,SKILLS,MEMORY,SECRETS,RUNTIME,BACKUPS,MEDIA,PICTURE)
+[2026-05-13 23:01:38] [INFO] Agent jack exported to /tmp/jack-full-test (mode: FULL, categories: CORE_IDENTITY,TOOLS,SKILLS,MEMORY,SECRETS,RUNTIME,BACKUPS,MEDIA,PICTURE)
+[2026-05-13 23:09:52] [INFO] Agent jack exported (mode: STANDARD, categories: CORE_IDENTITY,TOOLS,SKILLS)
+[2026-05-13 23:10:14] [INFO] Agent jack exported (mode: MINIMAL, categories: CORE_IDENTITY)

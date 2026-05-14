@@ -30,13 +30,21 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+try:
+    from paths import resolver
+    _HAS_RESOLVER = True
+except ImportError:
+    _HAS_RESOLVER = False
+
 # Configure logging
+_log_dir = Path(os.getenv("OPENCLAW_LOGS", "/var/log/openclaw"))
+_log_dir.mkdir(parents=True, exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler("/var/log/openclaw/supervisor.log"),
+        logging.FileHandler(str(_log_dir / "supervisor.log")),
     ],
 )
 logger = logging.getLogger("openclaw.supervisor")
@@ -55,12 +63,35 @@ class OpenClawSupervisor:
 
     def _load_config(self) -> Dict[str, Any]:
         """Load supervisor configuration."""
-        config_path = Path("/etc/openclaw/supervisor.json")
+        config_path = Path(os.getenv("OPENCLAW_CONFIG", "/etc/openclaw/supervisor.json"))
+        if _HAS_RESOLVER:
+            default_runtime = str(resolver.hermes_home)
+            default_agents = str(resolver.agents_dir)
+            default_registry = str(resolver.skills_root)
+            default_memory = str(resolver.memory_dir / "volumes" / "memory")
+            default_souls = str(resolver.memory_dir / "volumes" / "souls")
+            default_trajectories = str(resolver.memory_dir / "volumes" / "trajectories")
+            default_exports = str(resolver.memory_dir / "volumes" / "exports")
+            default_runtime_routing = str(resolver.root / "runtime" / "routing")
+            default_runtime_orchestration = str(resolver.root / "runtime" / "orchestration")
+            default_runtime_queues = str(resolver.root / "runtime" / "queues")
+        else:
+            default_runtime = "/opt/hermes"
+            default_agents = "/agents"
+            default_registry = "/srv/framework/shared/skills"
+            default_memory = "/srv/framework/volumes/memory"
+            default_souls = "/srv/framework/volumes/souls"
+            default_trajectories = "/srv/framework/volumes/trajectories"
+            default_exports = "/srv/framework/volumes/exports"
+            default_runtime_routing = "/srv/framework/runtime/routing"
+            default_runtime_orchestration = "/srv/framework/runtime/orchestration"
+            default_runtime_queues = "/srv/framework/runtime/queues"
+
         default_config = {
             "hermes": {
                 "enabled": True,
                 "gateway_port": 8080,
-                "runtime_path": "/opt/hermes",
+                "runtime_path": default_runtime,
                 "cli_entry": "hermes",
             },
             "openclaw": {
@@ -75,14 +106,14 @@ class OpenClawSupervisor:
             },
             "mcp": {
                 "enabled": True,
-                "registry_path": "/srv/framework/shared/skills",
+                "registry_path": default_registry,
                 "timeout": 30,
             },
             "volumes": {
-                "memory": "/srv/framework/volumes/memory",
-                "souls": "/srv/framework/volumes/souls",
-                "trajectories": "/srv/framework/volumes/trajectories",
-                "exports": "/srv/framework/volumes/exports",
+                "memory": default_memory,
+                "souls": default_souls,
+                "trajectories": default_trajectories,
+                "exports": default_exports,
             },
             "telemetry": {
                 "enabled": True,
@@ -101,18 +132,29 @@ class OpenClawSupervisor:
 
     def _setup_paths(self):
         """Setup required filesystem paths."""
-        paths = [
-            "/var/log/openclaw",
-            "/etc/openclaw",
-            self.config["volumes"]["memory"],
-            self.config["volumes"]["souls"],
-            self.config["volumes"]["trajectories"],
-            self.config["volumes"]["exports"],
-            self.config["mcp"]["registry_path"],
-            "/srv/framework/runtime/routing",
-            "/srv/framework/runtime/orchestration",
-            "/srv/framework/runtime/queues",
-        ]
+        if _HAS_RESOLVER:
+            paths = [
+                str(resolver.logs_dir),
+                str(resolver.config_dir),
+                self.config["volumes"]["memory"],
+                self.config["volumes"]["souls"],
+                self.config["volumes"]["trajectories"],
+                self.config["volumes"]["exports"],
+                self.config["mcp"]["registry_path"],
+            ]
+        else:
+            paths = [
+                "/var/log/openclaw",
+                "/etc/openclaw",
+                self.config["volumes"]["memory"],
+                self.config["volumes"]["souls"],
+                self.config["volumes"]["trajectories"],
+                self.config["volumes"]["exports"],
+                self.config["mcp"]["registry_path"],
+                "/srv/framework/runtime/routing",
+                "/srv/framework/runtime/orchestration",
+                "/srv/framework/runtime/queues",
+            ]
         for path in paths:
             Path(path).mkdir(parents=True, exist_ok=True)
 
@@ -138,7 +180,7 @@ class OpenClawSupervisor:
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     cwd=hermes_path,
-                    env={**os.environ, "PYTHONPATH": str(hermes_path)},
+                    env={**os.environ, "PYTHONPATH": str(hermes_path), "HERMES_HOME": str(hermes_path)},
                 )
                 logger.info(f"Hermes Gateway started (PID: {self.hermes_process.pid})")
                 return True
@@ -188,7 +230,7 @@ class OpenClawSupervisor:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 cwd=hermes_path,
-                env={**os.environ, "PYTHONPATH": str(hermes_path)},
+                env={**os.environ, "PYTHONPATH": str(hermes_path), "HERMES_HOME": str(hermes_path)},
             )
             self.agent_processes[agent_id] = proc
             logger.info(f"Agent {agent_id} started (PID: {proc.pid})")
@@ -200,7 +242,8 @@ class OpenClawSupervisor:
     def _start_openclaw_router(self) -> bool:
         """Start OpenClaw router for Telegram routing."""
         try:
-            router_script = Path("/srv/framework/runtime/routing/router.py")
+            runtime_routing = os.getenv("OPENCLAW_RUNTIME", "/srv/framework") + "/runtime/routing/router.py"
+            router_script = Path(runtime_routing)
             if router_script.exists():
                 cmd = [
                     sys.executable,
@@ -222,7 +265,8 @@ class OpenClawSupervisor:
     def _start_mcp_registry(self) -> bool:
         """Start MCP registry server."""
         try:
-            registry_script = Path("/srv/framework/runtime/orchestration/mcp_registry.py")
+            runtime_orchestration = os.getenv("OPENCLAW_RUNTIME", "/srv/framework") + "/runtime/orchestration/mcp_registry.py"
+            registry_script = Path(runtime_orchestration)
             if registry_script.exists():
                 cmd = [
                     sys.executable,

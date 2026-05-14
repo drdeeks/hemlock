@@ -1,0 +1,47 @@
+{
+  "agent_id": "jack",
+  "created_at": "2026-05-13T17:21:23.255122",
+  "updated_at": "2026-05-13T17:21:23.258089",
+  "nodes": [
+    {
+      "id": "node_0_172123",
+      "type": "conversation",
+      "content": "User asked about Python functions",
+      "created_at": "2026-05-13T17:21:23.255201",
+      "metadata": {
+        "session": "test"
+      },
+      "connections": []
+    },
+    {
+      "id": "node_1_172123",
+      "type": "knowledge",
+      "content": "Explained def keyword",
+      "created_at": "2026-05-13T17:21:23.255973",
+      "metadata": {
+        "topic": "python"
+      },
+      "connections": []
+    }
+  ],
+  "edges": [
+    {
+      "source": "node_0_172123",
+      "target": "node_1_172123",
+      "type": "related_to",
+      "created_at": "2026-05-13T17:21:23.256803"
+    }
+  ],
+  "semantic_clusters": [
+    {
+      "id": "cluster_python_basics_172123",
+      "topic": "python_basics",
+      "node_ids": [
+        "node_0_172123",
+        "node_1_172123"
+      ],
+      "created_at": "2026-05-13T17:21:23.258016"
+    }
+  ],
+  "temporal_index": []
+}

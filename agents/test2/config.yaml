@@ -1,0 +1,13 @@
+agent:
+  id: test2
+  name: test2
+  model: "ollama/qwen3:0.6b"
+  personality: "default"
+  memory:
+    enabled: true
+    max_chars: 100000
+  tools:
+    enabled: true
+  security:
+    read_only: true
+    cap_drop: true

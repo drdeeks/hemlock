@@ -1,9 +1,9 @@
 #!/bin/bash
-# Auto-sync snapshots to /home/drdeek/downloads/hemlock_snaps/
+# Auto-sync snapshots to downloads directory
 # Run this after creating any snapshot files in the hemlock directory
 
-HEMLOCK_DIR="/home/drdeek/projects/hemlock"
-SNAPS_DIR="/home/drdeek/downloads/hemlock_snaps"
+HEMLOCK_DIR="${HEMLOCK_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
+SNAPS_DIR="${SNAPS_DIR:-$HOME/downloads/hemlock_snaps}"
 
 # Ensure snaps directory exists
 mkdir -p "$SNAPS_DIR"

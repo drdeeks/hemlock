@@ -9,8 +9,7 @@ import os
 def test_adapters():
     """Test that we can initialize platform adapters."""
     try:
-        # Check if we have the necessary files
-        gateway_dir = '/opt/hermes/gateway'
+        gateway_dir = os.getenv('HERMES_HOME', '/opt/hermes') + '/gateway'
         if os.path.exists(gateway_dir):
             print("✓ Gateway directory found")
             

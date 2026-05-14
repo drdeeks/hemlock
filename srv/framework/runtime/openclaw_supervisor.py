@@ -40,11 +40,11 @@ import signal
 # =============================================================================
 
 class Config:
-    # Paths
-    FRAMEWORK_ROOT = Path("/srv/framework")
-    HERMES_ROOT = Path("/opt/hermes")
-    AGENTS_DIR = FRAMEWORK_ROOT / "agents"
-    SHARED_SKILLS = FRAMEWORK_ROOT / "shared" / "skills"
+    # Paths (configurable via environment variables)
+    FRAMEWORK_ROOT = Path(os.getenv("OPENCLAW_ROOT", "/srv/framework"))
+    HERMES_ROOT = Path(os.getenv("HERMES_HOME", "/opt/hermes"))
+    AGENTS_DIR = Path(os.getenv("HERMES_AGENTS", str(FRAMEWORK_ROOT / "agents")))
+    SHARED_SKILLS = Path(os.getenv("HERMES_SKILLS", str(FRAMEWORK_ROOT / "shared" / "skills")))
     VOLUMES_DIR = FRAMEWORK_ROOT / "volumes"
     
     # Runtime

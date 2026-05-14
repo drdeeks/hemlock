@@ -100,6 +100,66 @@ else
     echo "No global skills directory found, skipping skill installation"
 fi
 
+# =============================================================================
+# PHASE 19: PLUGIN MANAGER INTEGRATION
+# =============================================================================
+
+# Tier 1: Inject mandatory toolkit (no prompt - required for all agents)
+echo ""
+echo "=== Injecting mandatory toolkit ==="
+if command -v python3 &>/dev/null; then
+    cd "$RUNTIME_ROOT/docker/hermes-agent"
+    PYTHONPATH="$RUNTIME_ROOT/docker/hermes-agent" python3 -m plugins.cli toolkit --agent "$AGENT_ID" 2>&1 || {
+        echo ""
+        echo "  [WARNING] Toolkit injection failed for agent $AGENT_ID"
+        echo "  [WARNING] Agent created but secret management is VULNERABLE"
+        echo "  [WARNING] Run repair command when ready:"
+        echo "            cd $RUNTIME_ROOT/docker/hermes-agent && PYTHONPATH=\$PWD python3 -m plugins.cli toolkit --repair --agent $AGENT_ID"
+        echo ""
+    }
+    cd "$RUNTIME_ROOT"
+else
+    echo "  [WARNING] Python3 not available, skipping toolkit injection"
+    echo "  [WARNING] Run manually when Python is available:"
+    echo "            cd $RUNTIME_ROOT/docker/hermes-agent && PYTHONPATH=\$PWD python3 -m plugins.cli toolkit --agent $AGENT_ID"
+    echo ""
+fi
+
+# Tier 2: Prompt for optional plugins
+echo ""
+read -p "Install optional plugins? [Y/n/custom] " -n 1 -r PLUGIN_CHOICE
+echo ""
+case $PLUGIN_CHOICE in
+    Y|y|"")
+        echo "Injecting all optional plugins..."
+        cd "$RUNTIME_ROOT/docker/hermes-agent"
+        PYTHONPATH="$RUNTIME_ROOT/docker/hermes-agent" python3 -m plugins.cli inject --agent "$AGENT_ID" --all 2>&1 || \
+            echo "Note: Optional plugin injection failed, you can retry later"
+        cd "$RUNTIME_ROOT"
+        ;;
+    c|C)
+        echo "Available plugins:"
+        cd "$RUNTIME_ROOT/docker/hermes-agent"
+        PYTHONPATH="$RUNTIME_ROOT/docker/hermes-agent" python3 -m plugins.cli list 2>&1
+        echo ""
+        read -p "Enter plugin names (comma-separated): " PLUGIN_LIST
+        if [[ -n "$PLUGIN_LIST" ]]; then
+            echo "Injecting selected plugins: $PLUGIN_LIST"
+            PYTHONPATH="$RUNTIME_ROOT/docker/hermes-agent" python3 -m plugins.cli inject --agent "$AGENT_ID" --plugins "$PLUGIN_LIST" 2>&1 || \
+                echo "Note: Plugin injection failed, you can retry later"
+        else
+            echo "No plugins selected, skipping"
+        fi
+        cd "$RUNTIME_ROOT"
+        ;;
+    n|N)
+        echo "Skipping optional plugins"
+        ;;
+    *)
+        echo "Invalid choice, skipping optional plugins"
+        ;;
+esac
+
 # Update agent config with specific values
 cat > "$AGENTS_DIR/$AGENT_ID/config.yaml" <<EOL
 agent:

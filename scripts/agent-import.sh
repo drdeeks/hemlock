@@ -15,6 +15,7 @@
 #   --target <id>       Agent ID for the imported agent
 #   --model <model>     Override model (default: read from imported config.yaml)
 #   --overwrite         Replace existing agent (backs up first)
+#   --volume            Create isolated Docker volume for agent
 #   --no-build          Skip Docker image build
 #   --no-compose        Skip docker-compose.yml update
 #   --quiet             Suppress non-error output
@@ -46,6 +47,7 @@ SOURCE=""
 TARGET=""
 MODEL_OVERRIDE=""
 OVERWRITE=false
+USE_VOLUME=false
 NO_BUILD=false
 NO_COMPOSE=false
 QUIET=false
@@ -85,6 +87,7 @@ Flags:
   --target <id>       Agent ID (alternative to positional)
   --model <model>     Override model (default: read from imported config.yaml)
   --overwrite         Replace existing agent (backs up first)
+  --volume            Create isolated Docker volume for agent
   --no-build          Skip Docker image build step
   --no-compose        Skip docker-compose.yml update
   --quiet             Suppress non-error output
@@ -95,6 +98,7 @@ Examples:
   $(basename "$0") /tmp/titan-export.tar.gz titan
   $(basename "$0") --source ./exported/titan --target titan --no-build
   $(basename "$0") --source backup.tar.gz --target myagent --overwrite
+  $(basename "$0") --source ./exported/titan --target titan --volume
 EOF
     exit 0
 }
@@ -110,6 +114,7 @@ while [[ $# -gt 0 ]]; do
         --target)      TARGET="$2";        shift 2 ;;
         --model)       MODEL_OVERRIDE="$2"; shift 2 ;;
         --overwrite|--force) OVERWRITE=true;  shift ;;
+        --volume)      USE_VOLUME=true;      shift ;;
         --no-build)    NO_BUILD=true;       shift ;;
         --no-compose)  NO_COMPOSE=true;     shift ;;
         --quiet|-q)    QUIET=true;          shift ;;
@@ -234,6 +239,179 @@ cp -ra "$EXTRACT_DIR/." "$AGENTS_DIR/$TARGET/" 2>/dev/null || {
 }
 
 success "Files copied to agents/$TARGET/"
+
+# =============================================================================
+# PHASE 22: VOLUME ISOLATION
+# =============================================================================
+
+if [[ "$USE_VOLUME" == true ]]; then
+    echo ""
+    echo "=== Creating Isolated Volume ==="
+    
+    if ! command -v docker &>/dev/null; then
+        warn "Docker not available — skipping volume isolation"
+    else
+        VOLUME_NAME="hemlock-agent-${TARGET}"
+        info "Creating Docker volume: $VOLUME_NAME"
+        
+        # Create volume if not exists
+        docker volume create "$VOLUME_NAME" 2>/dev/null || info "Volume already exists"
+        
+        # Copy files to volume via temporary container
+        TEMP_CTR="hemlock-import-temp-$$"
+        docker create --name "$TEMP_CTR" -v "$VOLUME_NAME:/agent" alpine:latest sleep 1 2>/dev/null || {
+            warn "Failed to create temporary container"
+        }
+        
+        # Copy agent files to volume
+        docker cp "$AGENTS_DIR/$TARGET/." "$TEMP_CTR:/agent/" 2>/dev/null || {
+            warn "Failed to copy files to volume"
+        }
+        
+        # Cleanup temp container
+        docker rm "$TEMP_CTR" 2>/dev/null || true
+        
+        success "Volume created: $VOLUME_NAME"
+        echo ""
+        echo "  Volume:     $VOLUME_NAME"
+        echo "  Isolation:  Agent files isolated from host filesystem"
+        echo ""
+        echo "  Access:"
+        echo "    docker run --rm -v $VOLUME_NAME:/agent alpine ls /agent"
+        echo ""
+        echo "  Cleanup:"
+        echo "    docker volume rm $VOLUME_NAME"
+        echo ""
+    fi
+fi
+
+# =============================================================================
+# PHASE 22: SECRETS WARNING (Enhanced)
+# =============================================================================
+
+# Check for secrets and provide detailed warning
+if [[ -d "$AGENTS_DIR/$TARGET/.secrets" ]]; then
+    echo ""
+    echo "  🔐 SECRETS DETECTED"
+    echo "  ═══════════════════════════════════════════════════════════"
+    echo ""
+    echo "  This agent contains encrypted secrets:"
+    echo "    - .secrets/ directory"
+    
+    if [[ -f "$AGENTS_DIR/$TARGET/.env.enc" ]]; then
+        echo "    - .env.enc (encrypted environment)"
+    fi
+    
+    if [[ -f "$AGENTS_DIR/$TARGET/.secret-key" ]]; then
+        echo "    - .secret-key (encryption key)"
+        echo ""
+        echo "  ⚠️  SECURITY WARNING:"
+        echo "     The .secret-key file is AGENT-SPECIFIC."
+        echo "     Do NOT share this file publicly."
+        echo "     Store it securely - it's required to decrypt secrets."
+    else
+        echo ""
+        echo "  ℹ️  No .secret-key file found."
+        echo "     Secrets may be inaccessible without the original key."
+    fi
+    
+    echo ""
+    echo "  Accessing secrets:"
+    echo "    Use the secret.sh tool - NEVER access .secrets/ directly"
+    echo "    Example: bash agents/$TARGET/tools/secret.sh list"
+    echo "    Example: bash agents/$TARGET/tools/secret.sh get <key>"
+    echo ""
+    echo "  ═══════════════════════════════════════════════════════════"
+    echo ""
+fi
+
+# =============================================================================
+# PHASE 19: PLUGIN MANAGER INTEGRATION
+# =============================================================================
+
+# Tier 1: Inject mandatory toolkit (no prompt - required for all agents)
+echo ""
+echo "=== Injecting mandatory toolkit ==="
+if command -v python3 &>/dev/null; then
+    cd "$RUNTIME_ROOT/docker/hermes-agent"
+    PYTHONPATH="$RUNTIME_ROOT/docker/hermes-agent" python3 -m plugins.cli toolkit --agent "$TARGET" 2>&1 || {
+        echo ""
+        echo "  [WARNING] Toolkit injection failed for agent $TARGET"
+        echo "  [WARNING] Agent imported but secret management is VULNERABLE"
+        echo "  [WARNING] Run repair command when ready:"
+        echo "            cd $RUNTIME_ROOT/docker/hermes-agent && PYTHONPATH=\$PWD python3 -m plugins.cli toolkit --repair --agent $TARGET"
+        echo ""
+    }
+    cd "$RUNTIME_ROOT"
+else
+    echo "  [WARNING] Python3 not available, skipping toolkit injection"
+    echo "  [WARNING] Run manually when Python is available:"
+    echo "            cd $RUNTIME_ROOT/docker/hermes-agent && PYTHONPATH=\$PWD python3 -m plugins.cli toolkit --agent $TARGET"
+    echo ""
+fi
+
+# Check if .secrets/ directory exists and warn
+if [[ -d "$AGENTS_DIR/$TARGET/.secrets" ]]; then
+    echo ""
+    echo "  [INFO] Imported agent contains .secrets/ directory"
+    echo "  [INFO] Secrets are handled automatically by the toolkit"
+    echo "  [INFO] Use secret.sh tool to access encrypted secrets"
+    echo ""
+fi
+
+# Tier 2: Prompt for optional plugins (only if not already present)
+EXISTING_PLUGINS=()
+if [[ -d "$AGENTS_DIR/$TARGET/skills/autonomy-protocol" ]]; then
+    EXISTING_PLUGINS+=("autonomy-protocol")
+fi
+if [[ -d "$AGENTS_DIR/$TARGET/skills/backup-protocol" ]]; then
+    EXISTING_PLUGINS+=("backup-protocol")
+fi
+if [[ -d "$AGENTS_DIR/$TARGET/skills/subagent-driven-development" ]]; then
+    EXISTING_PLUGINS+=("subagent-driven-development")
+fi
+if [[ -d "$AGENTS_DIR/$TARGET/skills/agent-workspace-enforcement" ]]; then
+    EXISTING_PLUGINS+=("agent-workspace-enforcement")
+fi
+
+if [[ ${#EXISTING_PLUGINS[@]} -gt 0 ]]; then
+    echo "  [INFO] Existing plugins detected: ${EXISTING_PLUGINS[*]}"
+    echo "  [INFO] Skipping optional plugin prompt to preserve existing configuration"
+else
+    echo ""
+    read -p "Install optional plugins? [Y/n/custom] " -n 1 -r PLUGIN_CHOICE
+    echo ""
+    case $PLUGIN_CHOICE in
+        Y|y|"")
+            echo "Injecting all optional plugins..."
+            cd "$RUNTIME_ROOT/docker/hermes-agent"
+            PYTHONPATH="$RUNTIME_ROOT/docker/hermes-agent" python3 -m plugins.cli inject --agent "$TARGET" --all 2>&1 || \
+                echo "Note: Optional plugin injection failed, you can retry later"
+            cd "$RUNTIME_ROOT"
+            ;;
+        c|C)
+            echo "Available plugins:"
+            cd "$RUNTIME_ROOT/docker/hermes-agent"
+            PYTHONPATH="$RUNTIME_ROOT/docker/hermes-agent" python3 -m plugins.cli list 2>&1
+            echo ""
+            read -p "Enter plugin names (comma-separated): " PLUGIN_LIST
+            if [[ -n "$PLUGIN_LIST" ]]; then
+                echo "Injecting selected plugins: $PLUGIN_LIST"
+                PYTHONPATH="$RUNTIME_ROOT/docker/hermes-agent" python3 -m plugins.cli inject --agent "$TARGET" --plugins "$PLUGIN_LIST" 2>&1 || \
+                    echo "Note: Plugin injection failed, you can retry later"
+            else
+                echo "No plugins selected, skipping"
+            fi
+            cd "$RUNTIME_ROOT"
+            ;;
+        n|N)
+            echo "Skipping optional plugins"
+            ;;
+        *)
+            echo "Invalid choice, skipping optional plugins"
+            ;;
+    esac
+fi
 
 # =============================================================================
 # STEP 4 — Ensure required files exist (create defaults if missing)
