@@ -522,3 +522,85 @@ agents/jack/
 **Isolation**: Docker volumes ensure agents cannot access each other's data.
 **Portability**: Export/import entire agent directory.
 **Path Resolution**: Customizable via `HERMES_AGENTS` environment variable.
+
+---
+
+## Agent Workspace Structure
+
+Each agent workspace is self-contained and follows the standardized template:
+
+```
+agents/{agent-id}/
+├── agent.json             # Agent configuration
+├── agent/
+│   ├── SOUL.md           # Core identity
+│   ├── USER.md           # User preferences
+│   └── AGENTS.md         # Agent documentation
+├── memory/               # Memory storage (short/long term)
+├── knowledge/            # Knowledge base
+│   ├── api/
+│   ├── examples/
+│   ├── patterns/
+│   └── references/
+├── tools/                # Agent tools
+│   ├── configs/
+│   ├── scripts/
+│   ├── enforce.sh        # Workspace enforcement
+│   ├── secret.sh         # Secret management
+│   └── memory-*.sh       # Memory operations
+├── workflows/            # Workflow definitions
+├── projects/             # Active projects
+├── sessions/             # Session history
+├── archives/             # Archived data
+├── backups/              # Backup snapshots
+├── cache/                # Temporary cache
+├── temp/                 # Temporary files
+├── .scope/               # Scope configuration
+└── .secrets/             # Encrypted secrets (tool-access only)
+```
+
+### Enforcement
+
+Workspace structure is enforced by `agent-workspace-enforcement` skill:
+
+```bash
+# Enforce workspace structure
+bash scripts/enforce.sh $HERMES_HOME
+
+# Or from heartbeat
+bash scripts/enforce.sh "$HERMES_HOME"
+```
+
+**Enforcement actions**:
+1. Fixes ownership (root → agent)
+2. Ensures required directories exist
+3. Renames forbidden dirs (cache→media, memories→memory, archives→.archive)
+4. Archives runtime artifacts
+5. Removes bloat files
+6. Validates required files (SOUL.md, USER.md, AGENTS.md, agent.json)
+7. Fixes permissions (755 dirs, 644 files, NEVER 700)
+8. Verifies tools/ directory standard
+9. Checks SOUL.md identity
+
+### Path Resolution
+
+```python
+from paths import resolver
+
+# Agent workspace path
+agent_workspace = resolver.hermes_home  # $HERMES_HOME
+
+# Customizable via environment
+export HERMES_HOME=/custom/path/to/agent
+```
+
+**Docker**: `/data/agents/{agent-id}/`  
+**Native**: `~/.openclaw/agents/{agent-id}/` or custom via `HERMES_HOME`
+
+### Isolation
+
+- Each agent has isolated volume in Docker
+- Cannot access other agents' workspaces
+- Secrets accessible only via tool calls (`secret.sh`, `enforce.sh`)
+- Skills copied from read-only mount to workspace
+
