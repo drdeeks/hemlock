@@ -119,7 +119,7 @@ done
 
 # Ensure .secrets directory exists and is secure
 mkdir -p "$AGENTS_DIR/$TARGET/.secrets"
-chmod 700 "$AGENTS_DIR/$TARGET/.secrets"
+chmod 755 "$AGENTS_DIR/$TARGET/.secrets"
 
 # Copy tools if missing
 for tool in enforce.sh secret.sh memory-promote.sh memory-log.sh; do
@@ -132,7 +132,7 @@ done
 # Set proper permissions (NEVER 700 on workspace)
 find "$AGENTS_DIR/$TARGET" -type d -exec chmod 755 {} \; 2>/dev/null || true
 find "$AGENTS_DIR/$TARGET" -type f -exec chmod 644 {} \; 2>/dev/null || true
-chmod 700 "$AGENTS_DIR/$TARGET/.secrets" 2>/dev/null || true
+chmod 755 "$AGENTS_DIR/$TARGET/.secrets" 2>/dev/null || true
 
 # Run enforcement
 if [[ -f "$AGENTS_DIR/$TARGET/tools/enforce.sh" ]]; then

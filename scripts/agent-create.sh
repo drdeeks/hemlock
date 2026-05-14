@@ -121,7 +121,7 @@ This agent workspace is self-contained with:
 EOF
 
 # Ensure .secrets has proper permissions
-chmod 700 "$AGENTS_DIR/$AGENT_ID/.secrets" 2>/dev/null || true
+chmod 755 "$AGENTS_DIR/$AGENT_ID/.secrets" 2>/dev/null || true
 chmod 600 "$AGENTS_DIR/$AGENT_ID/.secrets/.README.md" 2>/dev/null || true
 
 # Copy tools from template or create defaults
