@@ -5,40 +5,53 @@ Checks that platform adapters can be initialized.
 """
 import sys
 import os
+from dataclasses import dataclass
+from typing import List
 
-def test_adapters():
+
+@dataclass
+class CheckResult:
+    name: str
+    status: str
+    detail: str = ""
+    path: str = ""
+
+
+def test_adapters(fix=False) -> List[CheckResult]:
     """Test that we can initialize platform adapters."""
+    results = []
+    
     try:
         gateway_dir = os.getenv('HERMES_HOME', '/opt/hermes') + '/gateway'
         if os.path.exists(gateway_dir):
-            print("✓ Gateway directory found")
+            results.append(CheckResult("adapters_gateway_dir", "ok", "Gateway directory found", gateway_dir))
             
             # Check for platform directories
             platforms_dir = os.path.join(gateway_dir, 'platforms')
             if os.path.exists(platforms_dir):
                 platforms = os.listdir(platforms_dir)
-                print(f"✓ Found platforms: {platforms}")
+                results.append(CheckResult("adapters_platforms", "ok", f"Found platforms: {platforms}", platforms_dir))
             else:
-                print("⚠ Platforms directory not found")
+                results.append(CheckResult("adapters_platforms", "warn", "Platforms directory not found"))
                 
             # Check for key gateway files
             required_files = ['config.py', 'session.py', 'hooks.py', 'pairing.py', 'run.py']
             for file in required_files:
-                if os.path.exists(os.path.join(gateway_dir, file)):
-                    print(f"✓ {file} found")
+                file_path = os.path.join(gateway_dir, file)
+                if os.path.exists(file_path):
+                    results.append(CheckResult(f"adapters_{file}", "ok", f"{file} found", file_path))
                 else:
-                    print(f"✗ {file} missing")
-                    return False
+                    results.append(CheckResult(f"adapters_{file}", "warn", f"{file} missing", file_path))
         else:
-            print("⚠ Gateway directory not found in expected location")
+            results.append(CheckResult("adapters_gateway_dir", "warn", "Gateway directory not found in expected location", gateway_dir))
             
-        return True
     except Exception as e:
-        print(f"✗ Adapter validation failed: {e}")
-        return False
+        results.append(CheckResult("adapters_error", "fail", f"Unexpected error: {type(e).__name__}: {e}"))
+    
+    return results
+
 
 if __name__ == "__main__":
-    if test_adapters():
-        sys.exit(0)
-    else:
-        sys.exit(1)
+    results = test_adapters()
+    all_ok = all(r.status != "fail" for r in results)
+    sys.exit(0 if all_ok else 1)

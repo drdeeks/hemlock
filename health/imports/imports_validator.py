@@ -5,9 +5,22 @@ Checks that critical modules can be imported.
 """
 import sys
 import traceback
+from dataclasses import dataclass
+from typing import List
 
-def test_imports():
+
+@dataclass
+class CheckResult:
+    name: str
+    status: str
+    detail: str = ""
+    path: str = ""
+
+
+def test_imports(fix=False) -> List[CheckResult]:
     """Test that we can import the core modules."""
+    results = []
+    
     try:
         # Try to import from the Hermes agent
         from gateway.config import load_gateway_config
@@ -19,23 +32,23 @@ def test_imports():
         from gateway.config import Platform
         from gateway.session import SessionSource
         
-        print("✓ All Hermes gateway imports successful")
+        results.append(CheckResult("imports_gateway", "ok", "All Hermes gateway imports successful"))
         
         # Try to import OpenClaw runtime (if available)
         try:
             import openclaw_runtime
-            print("✓ OpenClaw runtime import successful")
+            results.append(CheckResult("imports_openclaw", "ok", "OpenClaw runtime import successful"))
         except ImportError:
-            print("⚠ OpenClaw runtime not available (expected in base image)")
+            results.append(CheckResult("imports_openclaw", "warn", "OpenClaw runtime not available (expected in base image)"))
             
-        return True
     except Exception as e:
-        print(f"✗ Import validation failed: {e}")
+        results.append(CheckResult("imports_error", "fail", f"Unexpected error: {type(e).__name__}: {e}"))
         traceback.print_exc()
-        return False
+    
+    return results
+
 
 if __name__ == "__main__":
-    if test_imports():
-        sys.exit(0)
-    else:
-        sys.exit(1)
+    results = test_imports()
+    all_ok = all(r.status != "fail" for r in results)
+    sys.exit(0 if all_ok else 1)

@@ -6,9 +6,22 @@ Checks that persistence mechanisms are available.
 import sys
 import os
 import tempfile
+from dataclasses import dataclass
+from typing import List
 
-def test_persistence():
+
+@dataclass
+class CheckResult:
+    name: str
+    status: str
+    detail: str = ""
+    path: str = ""
+
+
+def test_persistence(fix=False) -> List[CheckResult]:
     """Test that we can write and read from persistence layer."""
+    results = []
+    
     try:
         # Test SQLite
         import sqlite3
@@ -23,10 +36,9 @@ def test_persistence():
             cursor.execute("SELECT data FROM test WHERE id=1")
             row = cursor.fetchone()
             if row and row[0] == "test":
-                print("✓ SQLite persistence test passed")
+                results.append(CheckResult("persistence_sqlite", "ok", "SQLite persistence test passed", db_path))
             else:
-                print("✗ SQLite persistence test failed: data mismatch")
-                return False
+                results.append(CheckResult("persistence_sqlite", "fail", "SQLite persistence test failed: data mismatch", db_path))
             conn.close()
         finally:
             os.unlink(db_path)
@@ -40,20 +52,19 @@ def test_persistence():
             with open(json_path, 'r') as f:
                 data = json.load(f)
             if data.get("test") == "data":
-                print("✓ JSON persistence test passed")
+                results.append(CheckResult("persistence_json", "ok", "JSON persistence test passed", json_path))
             else:
-                print("✗ JSON persistence test failed: data mismatch")
-                return False
+                results.append(CheckResult("persistence_json", "fail", "JSON persistence test failed: data mismatch", json_path))
         finally:
             os.unlink(json_path)
             
-        return True
     except Exception as e:
-        print(f"✗ Persistence validation failed: {e}")
-        return False
+        results.append(CheckResult("persistence_error", "fail", f"Unexpected error: {type(e).__name__}: {e}"))
+    
+    return results
+
 
 if __name__ == "__main__":
-    if test_persistence():
-        sys.exit(0)
-    else:
-        sys.exit(1)
+    results = test_persistence()
+    all_ok = all(r.status != "fail" for r in results)
+    sys.exit(0 if all_ok else 1)

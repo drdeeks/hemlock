@@ -273,8 +273,14 @@ create_agents_from_plugin() {
     log "====================================="
     echo ""
 
-
-    if [[ ! -f "$script" ]]; then
+    local create_script="$SCRIPTS_DIR/agent-create.sh"
+    
+    if [[ ! -f "$create_script" ]]; then
+        create_script="$SCRIPTS_DIR/create-agents.py"
+    fi
+    
+    if [[ ! -f "$create_script" ]]; then
+        error "Create agents script not found. Run setup first."
     fi
 
     if ! command -v python3 &>/dev/null; then
@@ -290,13 +296,20 @@ create_agents_from_plugin() {
     echo ""
 
     cd "$RUNTIME_ROOT"
-    python3 "$script"
+    if [[ "$create_script" == *.py ]]; then
+        python3 "$create_script"
+    else
+        bash "$create_script"
+    fi
     local rc=$?
     cd - >/dev/null
 
-
-    success "All 27 agents deployed"
-    log "Next step: run finalize-agents to wire workflows and references"
+    if [[ $rc -eq 0 ]]; then
+        success "All 27 agents deployed"
+        log "Next step: run finalize-agents to wire workflows and references"
+    else
+        error "Agent creation failed with code $rc"
+    fi
 }
 
 finalize_agents_from_plugin() {
@@ -304,8 +317,14 @@ finalize_agents_from_plugin() {
     log "==================================="
     echo ""
 
-
-    if [[ ! -f "$script" ]]; then
+    local finalize_script="$SCRIPTS_DIR/agent-finalize.sh"
+    
+    if [[ ! -f "$finalize_script" ]]; then
+        finalize_script="$SCRIPTS_DIR/finalize-agents.py"
+    fi
+    
+    if [[ ! -f "$finalize_script" ]]; then
+        error "Finalize agents script not found. Run create-agents first."
     fi
 
     if ! command -v python3 &>/dev/null; then
@@ -322,13 +341,20 @@ finalize_agents_from_plugin() {
     echo ""
 
     cd "$RUNTIME_ROOT"
-    python3 "$script"
+    if [[ "$finalize_script" == *.py ]]; then
+        python3 "$finalize_script"
+    else
+        bash "$finalize_script"
+    fi
     local rc=$?
     cd - >/dev/null
 
-
-    success "Agents finalized — workflows wired"
-    log "Next step: inject memory context with inject-all-memory"
+    if [[ $rc -eq 0 ]]; then
+        success "Agents finalized — workflows wired"
+        log "Next step: inject memory context with inject-all-memory"
+    else
+        error "Agent finalization failed with code $rc"
+    fi
 }
 
 # =============================================================================
@@ -1004,6 +1030,7 @@ _menu_header() {
     echo -e "  ${BOLD}╔══════════════════════════════════════════════════════════════╗${NC}"
     echo -e "  ${BOLD}║        HEMLOCK ENTERPRISE AGENT FRAMEWORK                   ║${NC}"
     echo -e "  ${BOLD}║             Interactive Management Console                  ║${NC}"
+    echo -e "  ${BOLD}║        Phase 30: Operational Health & Integration           ║${NC}"
     echo -e "  ${BOLD}╚══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
     _menu_status_line
@@ -1013,13 +1040,15 @@ _menu_header() {
 _menu_status_line() {
     local agent_count crew_count docker_st ollama_st
     local _active _archive
-    _active=$(find "$AGENTS_DIR/active"  -maxdepth 1 -name "*.json" 2>/dev/null | wc -l || echo 0)
-    _archive=$(find "$AGENTS_DIR/archive" -maxdepth 1 -name "*.json" 2>/dev/null | wc -l || echo 0)
+    _active=$(find "$AGENTS_DIR/active"  -maxdepth 1 -name "*.json" 2>/dev/null | wc -l)
+    _active=${_active:-0}
+    _archive=$(find "$AGENTS_DIR/archive" -maxdepth 1 -name "*.json" 2>/dev/null | wc -l)
+    _archive=${_archive:-0}
     agent_count=$(( _active + _archive ))
     local cfg_crews=0
-    [[ -d "$CONFIG_DIR/crews" ]] && cfg_crews=$(find "$CONFIG_DIR/crews" -name "*.yaml" 2>/dev/null | wc -l || echo 0)
+    [[ -d "$CONFIG_DIR/crews" ]] && cfg_crews=$(find "$CONFIG_DIR/crews" -name "*.yaml" 2>/dev/null | wc -l) || cfg_crews=0
     local dir_crews=0
-    [[ -d "$CREWS_DIR" ]] && dir_crews=$(find "$CREWS_DIR" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l || echo 0)
+    [[ -d "$CREWS_DIR" ]] && dir_crews=$(find "$CREWS_DIR" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l) || dir_crews=0
     crew_count=$((dir_crews + cfg_crews))
 
     if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
@@ -1552,6 +1581,315 @@ _menu_backup_validate() {
 
 _menu_plugin_list() { echo ""; list_plugins; }
 
+# ── Phase 30: Operational Health & Integration actions ───────────────────────
+
+_menu_health_check() {
+    echo ""
+    echo -e "  ${BLUE}Operational Health Check${NC}"
+    echo "    [1] Quick health check (paths, env, imports)"
+    echo "    [2] Full health check (all categories)"
+    echo "    [3] Health check with auto-fix"
+    echo "    [4] JSON output (for monitoring)"
+    echo "    [5] Cancel"
+    echo ""
+    read -rp "  Choice: " hc 2>/dev/null || hc=""
+    
+    # Set PYTHONPATH for docker/hermes-agent modules
+    export PYTHONPATH="$RUNTIME_ROOT/docker/hermes-agent:$PYTHONPATH"
+    
+    case "$hc" in
+        1)
+            echo ""
+            log "Running quick health check..."
+            python3 -m health.doctor_bridge --quick
+            ;;
+        2)
+            echo ""
+            log "Running full health check..."
+            python3 -m health.doctor_bridge
+            ;;
+        3)
+            echo ""
+            log "Running health check with auto-fix..."
+            python3 -m health.doctor_bridge --fix
+            ;;
+        4)
+            echo ""
+            log "Generating JSON health report..."
+            python3 -m health.doctor_bridge --json
+            ;;
+        *) echo "  Cancelled." ;;
+    esac
+    _menu_pause
+}
+
+_menu_key_injection() {
+    echo ""
+    echo -e "  ${BLUE}Key Injection (OpenClaw → Hermes)${NC}"
+    echo "    [1] Inject from OpenClaw config (~/.openclaw/openclaw.json)"
+    echo "    [2] Inject from JSON file"
+    echo "    [3] Preview injection (dry run)"
+    echo "    [4] Verify injected keys"
+    echo "    [5] Cancel"
+    echo ""
+    read -rp "  Choice: " ki 2>/dev/null || ki=""
+    
+    # Set PYTHONPATH for docker/hermes-agent modules
+    export PYTHONPATH="$RUNTIME_ROOT/docker/hermes-agent:$PYTHONPATH"
+    
+    case "$ki" in
+        1)
+            echo ""
+            log "Injecting keys from OpenClaw configuration..."
+            python3 -m scripts.key_inject --from-openclaw
+            ;;
+        2)
+            echo ""
+            read -rp "  Path to JSON config file: " config_path
+            if [[ -f "$config_path" ]]; then
+                python3 -m scripts.key_inject --from-file "$config_path"
+            else
+                echo -e "  ${RED}File not found: $config_path${NC}"
+            fi
+            ;;
+        3)
+            echo ""
+            log "Previewing key injection (dry run)..."
+            read -rp "  Path to JSON config file (or Enter for OpenClaw): " config_path
+            if [[ -n "$config_path" ]]; then
+                python3 -m scripts.key_inject --from-file "$config_path" --dry-run
+            else
+                python3 -m scripts.key_inject --from-openclaw --dry-run
+            fi
+            ;;
+        4)
+            echo ""
+            log "Verifying injected keys..."
+            local hermes_home="${HERMES_HOME:-$HOME/.hermes}"
+            if [[ -f "$hermes_home/.env" ]]; then
+                echo -e "  ${GREEN}✓ .env file exists${NC}"
+                echo "  Contents:"
+                head -20 "$hermes_home/.env" | sed 's/^/    /'
+            else
+                echo -e "  ${YELLOW}⚠ .env file not found${NC}"
+            fi
+            echo ""
+            if [[ -f "$hermes_home/.secrets/secrets.json" ]]; then
+                echo -e "  ${GREEN}✓ Secrets file exists${NC}"
+                echo "  Contents (masked):"
+                python3 -c "
+import json
+with open('$hermes_home/.secrets/secrets.json') as f:
+    data = json.load(f)
+for k in data:
+    v = data[k]
+    if len(v) > 8:
+        v = v[:4] + '*' * (len(v)-8) + v[-4:]
+    print(f'    {k}: {v}')
+" 2>/dev/null || echo "    (unable to parse)"
+            else
+                echo -e "  ${YELLOW}⚠ Secrets file not found${NC}"
+            fi
+            ;;
+        *) echo "  Cancelled." ;;
+    esac
+    _menu_pause
+}
+
+_menu_runtime_management() {
+    echo ""
+    echo -e "  ${BLUE}Runtime Management${NC}"
+    echo "    [1] Start runtime daemon"
+    echo "    [2] Stop runtime daemon"
+    echo "    [3] Runtime status"
+    echo "    [4] Runtime logs"
+    echo "    [5] Run setup (non-interactive)"
+    echo "    [6] Cancel"
+    echo ""
+    read -rp "  Choice: " rm 2>/dev/null || rm=""
+    
+    # Set PYTHONPATH for docker/hermes-agent modules
+    export PYTHONPATH="$RUNTIME_ROOT/docker/hermes-agent:$PYTHONPATH"
+    
+    case "$rm" in
+        1)
+            echo ""
+            log "Starting runtime daemon..."
+            if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+                docker compose -f "$RUNTIME_ROOT/docker-compose.runtime.yml" up -d runtime
+            else
+                python3 -m docker.hermes_agent.runtime.init
+            fi
+            ;;
+        2)
+            echo ""
+            log "Stopping runtime daemon..."
+            if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+                docker compose -f "$RUNTIME_ROOT/docker-compose.runtime.yml" down runtime
+            else
+                echo -e "  ${YELLOW}Manual stop required (not running in Docker)${NC}"
+            fi
+            ;;
+        3)
+            echo ""
+            log "Checking runtime status..."
+            if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+                docker compose -f "$RUNTIME_ROOT/docker-compose.runtime.yml" ps runtime
+            else
+                pgrep -f "runtime.init" >/dev/null && echo "  Runtime is running" || echo "  Runtime is not running"
+            fi
+            ;;
+        4)
+            echo ""
+            log "Streaming runtime logs (Ctrl+C to stop)..."
+            if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+                docker compose -f "$RUNTIME_ROOT/docker-compose.runtime.yml" logs -f runtime
+            else
+                tail -f "$RUNTIME_ROOT/logs/runtime.log" 2>/dev/null || echo "  No logs available"
+            fi
+            ;;
+        5)
+            echo ""
+            log "Running non-interactive setup..."
+            python3 -m docker.hermes_agent.runtime.init --setup
+            ;;
+        *) echo "  Cancelled." ;;
+    esac
+    _menu_pause
+}
+
+_menu_docker_runtime() {
+    echo ""
+    echo -e "  ${BLUE}Docker Runtime Operations${NC}"
+    echo "    [1] Start all services (runtime + agent)"
+    echo "    [2] Stop all services"
+    echo "    [3] Restart services"
+    echo "    [4] Run doctor service"
+    echo "    [5] Run setup service"
+    echo "    [6] View service status"
+    echo "    [7] View service logs"
+    echo "    [8] Cancel"
+    echo ""
+    read -rp "  Choice: " dr 2>/dev/null || dr=""
+    
+    # Set PYTHONPATH for docker/hermes-agent modules
+    export PYTHONPATH="$RUNTIME_ROOT/docker/hermes-agent:$PYTHONPATH"
+    
+    case "$dr" in
+        1)
+            echo ""
+            _docker_check || return 0
+            _safe_confirm "Start all services?" || { echo "  Cancelled."; return 0; }
+            docker compose -f "$RUNTIME_ROOT/docker-compose.runtime.yml" up -d
+            ;;
+        2)
+            echo ""
+            _docker_check || return 0
+            _safe_confirm "Stop all services?" || { echo "  Cancelled."; return 0; }
+            docker compose -f "$RUNTIME_ROOT/docker-compose.runtime.yml" down
+            ;;
+        3)
+            echo ""
+            _docker_check || return 0
+            _safe_confirm "Restart all services?" || { echo "  Cancelled."; return 0; }
+            docker compose -f "$RUNTIME_ROOT/docker-compose.runtime.yml" restart
+            ;;
+        4)
+            echo ""
+            _docker_check || return 0
+            log "Running doctor service..."
+            docker compose -f "$RUNTIME_ROOT/docker-compose.runtime.yml" run --rm doctor
+            ;;
+        5)
+            echo ""
+            _docker_check || return 0
+            log "Running setup service..."
+            docker compose -f "$RUNTIME_ROOT/docker-compose.runtime.yml" run --rm setup
+            ;;
+        6)
+            echo ""
+            _docker_check || return 0
+            docker compose -f "$RUNTIME_ROOT/docker-compose.runtime.yml" ps
+            ;;
+        7)
+            echo ""
+            _docker_check || return 0
+            log "Streaming logs (Ctrl+C to stop)..."
+            docker compose -f "$RUNTIME_ROOT/docker-compose.runtime.yml" logs -f
+            ;;
+        *) echo "  Cancelled." ;;
+    esac
+    _menu_pause
+}
+
+_menu_docker_build_runtime() {
+    echo ""
+    echo -e "  ${BLUE}Build Runtime Docker Image${NC}"
+    echo "    This builds the minimal 329MB runtime image with health checks."
+    echo ""
+    _docker_check || return 0
+    _safe_confirm "Build hemlock:latest from Dockerfile.runtime?" || { echo "  Cancelled."; return 0; }
+    echo ""
+    log "Building runtime image..."
+    docker build -t hemlock:latest -f "$RUNTIME_ROOT/Dockerfile.runtime" .
+    echo ""
+    if [[ $? -eq 0 ]]; then
+        success "Runtime image built successfully"
+        docker images hemlock:latest
+    else
+        echo -e "  ${RED}Build failed${NC}"
+    fi
+    _menu_pause
+}
+
+_menu_system_doctor() {
+    echo ""
+    echo -e "  ${BLUE}System Doctor Diagnostics${NC}"
+    echo "    Comprehensive system health check with remediation."
+    echo ""
+    echo "    [1] Run doctor (interactive)"
+    echo "    [2] Run doctor with auto-fix"
+    echo "    [3] Run doctor (JSON output)"
+    echo "    [4] Cancel"
+    echo ""
+    read -rp "  Choice: " sd 2>/dev/null || sd=""
+    
+    # Set PYTHONPATH for docker/hermes-agent modules
+    export PYTHONPATH="$RUNTIME_ROOT/docker/hermes-agent:$PYTHONPATH"
+    
+    case "$sd" in
+        1)
+            echo ""
+            log "Running doctor diagnostics..."
+            if command -v hermes &>/dev/null; then
+                hermes doctor
+            else
+                python3 -m docker.hermes_agent.runtime.cli doctor
+            fi
+            ;;
+        2)
+            echo ""
+            log "Running doctor with auto-fix..."
+            if command -v hermes &>/dev/null; then
+                hermes doctor --fix
+            else
+                python3 -m docker.hermes_agent.runtime.cli doctor --fix
+            fi
+            ;;
+        3)
+            echo ""
+            log "Generating doctor report (JSON)..."
+            if command -v hermes &>/dev/null; then
+                hermes doctor --json
+            else
+                python3 -m docker.hermes_agent.runtime.cli doctor --json
+            fi
+            ;;
+        *) echo "  Cancelled." ;;
+    esac
+    _menu_pause
+}
+
 _menu_plugin_toggle() {
     echo ""
     [[ ! -d "$PLUGINS_DIR" ]] && { echo "  No plugins directory found."; return 0; }
@@ -1602,10 +1940,14 @@ show_main_menu() {
    [16] Setup wizard             [17] Initialize (first run)
    [18] Update system
 
+  ─── OPERATIONAL HEALTH (Phase 30) ──────────────────────────────────────────
+   [30] Health check             [31] Key injection (OpenClaw → Hermes)
+   [32] Runtime management       [33] System doctor
+
   ─── DOCKER ─────────────────────────────────────────────────────────────────
    [19] Start all services       [20] Stop all services
    [21] Build images             [22] Container status (ps)
-   [23] Service logs
+   [23] Service logs             [34] Docker runtime operations
 
   ─── BACKUP ─────────────────────────────────────────────────────────────────
    [24] Backup now               [25] Restore from backup
@@ -1658,6 +2000,11 @@ menu_loop() {
             27) _menu_backup_validate ;;
             28) _menu_plugin_list ;;
             29) _menu_plugin_toggle ;;
+            30) _menu_health_check ;;
+            31) _menu_key_injection ;;
+            32) _menu_runtime_management ;;
+            33) _menu_system_doctor ;;
+            34) _menu_docker_runtime ;;
             h|H|help|--help|-h) usage; continue ;;
             q|Q|quit|exit|0)
                 echo "  Goodbye."
@@ -1850,14 +2197,11 @@ done
 # =============================================================================
 
 if [[ -z "${COMMAND:-}" ]]; then
-    main_menu
+    # No command given — launch the interactive menu
+    menu_loop
 fi
 
 case "$COMMAND" in
-    "")
-        # No command given — launch the interactive menu
-        menu_loop
-        ;;
     create-agents|create-agents-from-plugin|deploy-agents)
         if [[ "$SKIP_INIT" == true ]]; then
             log "Skipping agent creation"
