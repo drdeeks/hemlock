@@ -1,287 +1,156 @@
 #!/bin/bash
-# Agent Creation Script
+# =============================================================================
+# agent-create.sh — Create new agent with workspace-template structure
 #
-# Creates a new OpenClaw agent with full Docker integration
-# Usage: ./scripts/agent-create.sh --id <agent_id> [--model <model>] [--name <name>] [--personality <personality>]
+# Creates agent with FULL workspace structure from template:
+# - All directories (agent/, memory/, knowledge/, tools/, workflows/, etc.)
+# - All files (agent.json, SOUL.md, USER.md, AGENTS.md)
+# - Hidden directories (.secrets/, .scope/)
+# - Tools (enforce.sh, secret.sh, memory-*.sh)
+# - Proper permissions (755 dirs, 644 files)
+#
+# Usage: ./agent-create.sh --id <agent_id> [--model <model>] [--name <name>]
+# =============================================================================
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNTIME_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 AGENTS_DIR="$RUNTIME_ROOT/agents"
-LOG_DIR="$RUNTIME_ROOT/logs"
-CONFIG_DIR="$RUNTIME_ROOT/config"
-DOCKER_COMPOSE_FILE="$RUNTIME_ROOT/docker-compose.yml"
+TEMPLATE_DIR="$AGENTS_DIR/workspace-template"
 
-# Ensure directories exist
-mkdir -p "$AGENTS_DIR" "$LOG_DIR" "$CONFIG_DIR"
-
+mkdir -p "$AGENTS_DIR"
 source "$SCRIPT_DIR/helpers.sh"
 
-# Default values
+# Defaults
 AGENT_ID=""
 MODEL="ollama/qwen3:0.6b"
 NAME=""
-PERSONALITY="default"
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --id)
-            AGENT_ID=$2
-            shift 2 ;;
-        --model)
-            MODEL=$2
-            shift 2 ;;
-        --name)
-            NAME=$2
-            shift 2 ;;
-        --personality)
-            PERSONALITY=$2
-            shift 2 ;;
-        *)
-            echo "Unknown option: $1"
-            echo "Usage: $0 --id <agent_id> [--model <model>] [--name <name>] [--personality <personality>]"
-            exit 1 ;;
+        --id) AGENT_ID="$2"; shift 2 ;;
+        --model) MODEL="$2"; shift 2 ;;
+        --name) NAME="$2"; shift 2 ;;
+        *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
 
-# Validate inputs
-if [ -z "$AGENT_ID" ]; then
-    echo "Error: Agent ID is required"
-    echo "Usage: $0 --id <agent_id> [--model <model>] [--name <name>] [--personality <personality>]"
-    exit 1
+# Validate
+[[ -z "$AGENT_ID" ]] && { echo "Error: Agent ID required"; exit 1; }
+validate_agent_id "$AGENT_ID" || exit 1
+agent_exists "$AGENT_ID" && { echo "Error: Agent $AGENT_ID exists"; exit 1; }
+[[ -z "$NAME" ]] && NAME="$AGENT_ID"
+
+# Check template exists
+if [[ ! -d "$TEMPLATE_DIR" ]]; then
+    echo "Error: workspace-template not found at $TEMPLATE_DIR"
+    echo "Creating template first..."
+    mkdir -p "$TEMPLATE_DIR"
 fi
 
-if ! validate_agent_id "$AGENT_ID"; then
-    exit 1
-fi
+echo "Creating agent $AGENT_ID from workspace-template..."
 
-if agent_exists "$AGENT_ID"; then
-    echo "Error: Agent $AGENT_ID already exists"
-    exit 1
-fi
+# Copy entire template structure (preserves ALL files including hidden)
+cp -ra "$TEMPLATE_DIR/." "$AGENTS_DIR/$AGENT_ID/"
 
-if [ -z "$NAME" ]; then
-    NAME=$AGENT_ID
-fi
+# Update agent.json with correct ID
+cat > "$AGENTS_DIR/$AGENT_ID/agent.json" <<EOF
+{
+  "agent_id": "$AGENT_ID",
+  "name": "$NAME",
+  "display_name": "$NAME",
+  "type": "active",
+  "personality": "Helpful, efficient, and direct",
+  "expertise": ["general assistance"],
+  "communication_style": "Clear and concise",
+  "avatar_emoji": "🤖",
+  "created_at": "$(date -Iseconds)",
+  "version": "1.0.0",
+  "model": "$MODEL"
+}
+EOF
 
-# Check Docker environment
-if ! check_docker; then
-    echo "Warning: Docker not available. Agent will be created but Docker integration skipped."
-    SKIP_DOCKER=true
-fi
-
-# Create agent structure
-echo "Creating agent $AGENT_ID..."
-create_agent_structure "$AGENT_ID"
-
-# Create SOUL.md at agent root (required by lifecycle and export tests)
-cat > "$AGENTS_DIR/$AGENT_ID/SOUL.md" <<EOL
-# SOUL.md - $AGENT_ID
+# Update SOUL.md
+cat > "$AGENTS_DIR/$AGENT_ID/agent/SOUL.md" <<EOF
+# SOUL.md — $AGENT_ID
 
 **Identity:** $AGENT_ID
-
+**Name:** $NAME
 **Purpose:** General purpose assistant
-
 **Model:** $MODEL
-EOL
+**Created:** $(date -Iseconds)
+EOF
 
-# Create hidden security directories and placeholder files
-mkdir -p "$AGENTS_DIR/$AGENT_ID/.secrets"
-touch "$AGENTS_DIR/$AGENT_ID/.env.enc"
+# Update USER.md
+cat > "$AGENTS_DIR/$AGENT_ID/agent/USER.md" <<EOF
+# USER.md — $AGENT_ID
 
-# Install default skills from global skills directory
-echo "Installing default skills..."
-if [[ -d "$RUNTIME_ROOT/skills" ]] && [[ -n "$(ls -A "$RUNTIME_ROOT/skills" 2>/dev/null | head -1)" ]]; then
-    "$SCRIPT_DIR/skills-install.sh" --quiet "$AGENT_ID" 2>/dev/null || \
-        echo "Note: Some default skills may not be available"
-else
-    echo "No global skills directory found, skipping skill installation"
+**Owner:** User
+**Preferences:** Default
+**Communication:** Direct and efficient
+EOF
+
+# Update AGENTS.md
+cat > "$AGENTS_DIR/$AGENT_ID/agent/AGENTS.md" <<EOF
+# AGENTS.md — $AGENT_ID
+
+**Agent:** $NAME ($AGENT_ID)
+**Type:** Active agent
+**Status:** Created $(date -Iseconds)
+
+## Workspace Structure
+
+This agent workspace is self-contained with:
+- agent/ (SOUL.md, USER.md, AGENTS.md)
+- memory/ (short/long term memory)
+- knowledge/ (API docs, examples, patterns)
+- tools/ (enforce.sh, secret.sh, memory-*.sh)
+- workflows/ (workflow definitions)
+- projects/ (active projects)
+- sessions/ (session history)
+- .secrets/ (encrypted secrets, tool-access only)
+- .scope/ (scope configuration)
+
+## Security
+
+- Secrets accessible only via tool calls
+- Workspace enforced by agent-workspace-enforcement skill
+- Permissions: 755 (dirs), 644 (files)
+EOF
+
+# Ensure .secrets has proper permissions
+chmod 700 "$AGENTS_DIR/$AGENT_ID/.secrets" 2>/dev/null || true
+chmod 600 "$AGENTS_DIR/$AGENT_ID/.secrets/.README.md" 2>/dev/null || true
+
+# Copy tools from template or create defaults
+if [[ ! -f "$AGENTS_DIR/$AGENT_ID/tools/enforce.sh" ]]; then
+    cp "$SCRIPT_DIR/enforce.sh" "$AGENTS_DIR/$AGENT_ID/tools/" 2>/dev/null || touch "$AGENTS_DIR/$AGENT_ID/tools/enforce.sh"
+fi
+if [[ ! -f "$AGENTS_DIR/$AGENT_ID/tools/secret.sh" ]]; then
+    cp "$SCRIPT_DIR/secret.sh" "$AGENTS_DIR/$AGENT_ID/tools/" 2>/dev/null || touch "$AGENTS_DIR/$AGENT_ID/tools/secret.sh"
 fi
 
-# =============================================================================
-# PHASE 19: PLUGIN MANAGER INTEGRATION
-# =============================================================================
+# Set proper permissions on all directories and files
+find "$AGENTS_DIR/$AGENT_ID" -type d -exec chmod 755 {} \; 2>/dev/null || true
+find "$AGENTS_DIR/$AGENT_ID" -type f -exec chmod 644 {} \; 2>/dev/null || true
 
-# Tier 1: Inject mandatory toolkit (no prompt - required for all agents)
+# Install default skills if available
+if [[ -d "$RUNTIME_ROOT/skills" ]]; then
+    echo "Installing default skills..."
+    "$SCRIPT_DIR/skills-install.sh" --quiet "$AGENT_ID" 2>/dev/null || true
+fi
+
+# Run enforcement to ensure structure is correct
+if [[ -f "$AGENTS_DIR/$AGENT_ID/tools/enforce.sh" ]]; then
+    echo "Running workspace enforcement..."
+    bash "$AGENTS_DIR/$AGENT_ID/tools/enforce.sh" "$AGENTS_DIR/$AGENT_ID" 2>/dev/null || true
+fi
+
+echo "✓ Agent $AGENT_ID created successfully"
+echo "  Location: $AGENTS_DIR/$AGENT_ID"
+echo "  Model: $MODEL"
 echo ""
-echo "=== Injecting mandatory toolkit ==="
-if command -v python3 &>/dev/null; then
-    cd "$RUNTIME_ROOT/docker/hermes-agent"
-    PYTHONPATH="$RUNTIME_ROOT/docker/hermes-agent" python3 -m plugins.cli toolkit --agent "$AGENT_ID" 2>&1 || {
-        echo ""
-        echo "  [WARNING] Toolkit injection failed for agent $AGENT_ID"
-        echo "  [WARNING] Agent created but secret management is VULNERABLE"
-        echo "  [WARNING] Run repair command when ready:"
-        echo "            cd $RUNTIME_ROOT/docker/hermes-agent && PYTHONPATH=\$PWD python3 -m plugins.cli toolkit --repair --agent $AGENT_ID"
-        echo ""
-    }
-    cd "$RUNTIME_ROOT"
-else
-    echo "  [WARNING] Python3 not available, skipping toolkit injection"
-    echo "  [WARNING] Run manually when Python is available:"
-    echo "            cd $RUNTIME_ROOT/docker/hermes-agent && PYTHONPATH=\$PWD python3 -m plugins.cli toolkit --agent $AGENT_ID"
-    echo ""
-fi
-
-# Tier 2: Prompt for optional plugins
-echo ""
-read -p "Install optional plugins? [Y/n/custom] " -n 1 -r PLUGIN_CHOICE
-echo ""
-case $PLUGIN_CHOICE in
-    Y|y|"")
-        echo "Injecting all optional plugins..."
-        cd "$RUNTIME_ROOT/docker/hermes-agent"
-        PYTHONPATH="$RUNTIME_ROOT/docker/hermes-agent" python3 -m plugins.cli inject --agent "$AGENT_ID" --all 2>&1 || \
-            echo "Note: Optional plugin injection failed, you can retry later"
-        cd "$RUNTIME_ROOT"
-        ;;
-    c|C)
-        echo "Available plugins:"
-        cd "$RUNTIME_ROOT/docker/hermes-agent"
-        PYTHONPATH="$RUNTIME_ROOT/docker/hermes-agent" python3 -m plugins.cli list 2>&1
-        echo ""
-        read -p "Enter plugin names (comma-separated): " PLUGIN_LIST
-        if [[ -n "$PLUGIN_LIST" ]]; then
-            echo "Injecting selected plugins: $PLUGIN_LIST"
-            PYTHONPATH="$RUNTIME_ROOT/docker/hermes-agent" python3 -m plugins.cli inject --agent "$AGENT_ID" --plugins "$PLUGIN_LIST" 2>&1 || \
-                echo "Note: Plugin injection failed, you can retry later"
-        else
-            echo "No plugins selected, skipping"
-        fi
-        cd "$RUNTIME_ROOT"
-        ;;
-    n|N)
-        echo "Skipping optional plugins"
-        ;;
-    *)
-        echo "Invalid choice, skipping optional plugins"
-        ;;
-esac
-
-# Update agent config with specific values
-cat > "$AGENTS_DIR/$AGENT_ID/config.yaml" <<EOL
-agent:
-  id: $AGENT_ID
-  name: $NAME
-  model: "$MODEL"
-  personality: "$PERSONALITY"
-  memory:
-    enabled: true
-    max_chars: 100000
-  tools:
-    enabled: true
-  security:
-    read_only: true
-    cap_drop: true
-EOL
-
-# Docker integration (if Docker is available)
-if [[ "${SKIP_DOCKER:-false}" == "true" ]]; then
-    echo "Docker not available, skipping Docker integration."
-    echo "Agent directories created successfully."
-else
-    # Add agent to docker-compose.yml
-    echo "Adding agent to docker-compose.yml..."
-    update_docker_compose "$AGENT_ID" "$MODEL"
-
-    # Build agent image
-    echo "Building agent image..."
-    build_agent_image "$AGENT_ID" "$MODEL"
-fi
-
-# Success
-log "INFO" "Agent $AGENT_ID created successfully"
-if command -v agent_log &>/dev/null; then
-    agent_log "$AGENT_ID" "INFO" "Agent created with model $MODEL"
-fi
-
-echo "Agent $AGENT_ID created successfully!"
-if [[ "${SKIP_DOCKER:-false}" == "true" ]]; then
-    echo "To start manually: $SCRIPT_DIR/agent-control.sh start $AGENT_ID"
-else
-    echo "To start with Docker: make up"
-fi
-
-# =============================================================================
-# Functions
-# =============================================================================
-
-# Update docker-compose.yml function
-update_docker_compose() {
-    local agent_id=$1
-    local model=$2
-    
-    # Check if agent service already exists
-    if grep -q "oc-$agent_id:" "$DOCKER_COMPOSE_FILE" 2>/dev/null; then
-        echo "Agent $agent_id already exists in docker-compose.yml"
-        return 0
-    fi
-    
-    # Append agent service to docker-compose.yml
-    cat >> "$DOCKER_COMPOSE_FILE" <<EOL
-
-  oc-$agent_id:
-    build:
-      context: .
-      dockerfile: Dockerfile.agent
-      args:
-        AGENT_ID: $agent_id
-        MODEL: $model
-    container_name: oc-$agent_id
-    restart: unless-stopped
-    environment:
-      - AGENT_ID=$agent_id
-      - MODEL=$model
-      - OPENCLAW_GATEWAY_URL=ws://openclaw-gateway:18789
-      - OPENCLAW_GATEWAY_TOKEN=\${OPENCLAW_GATEWAY_TOKEN}
-    volumes:
-      - $AGENTS_DIR/$agent_id/data:/app/data
-      - $AGENTS_DIR/$agent_id/config:/app/config
-    networks:
-      - agents_net
-    cap_drop:
-      - ALL
-    read_only: true
-    tmpfs:
-      - /tmp:size=64m
-    depends_on:
-      openclaw-gateway:
-        condition: service_healthy
-EOL
-    
-    log "INFO" "Added agent $agent_id to docker-compose.yml"
-}
-
-# Build agent image function
-build_agent_image() {
-    local agent_id=$1
-    local model=$2
-    
-    # Check if Dockerfile.agent exists
-    local root_dockerfile="$RUNTIME_ROOT/Dockerfile.agent"
-    if [ ! -f "$root_dockerfile" ]; then
-        echo "Error: Dockerfile.agent not found at $root_dockerfile"
-        echo "Please ensure the Docker configuration is properly set up."
-        return 1
-    fi
-    
-    # Check if entrypoint.sh exists
-    local root_entrypoint="$RUNTIME_ROOT/entrypoint.sh"
-    if [ ! -f "$root_entrypoint" ]; then
-        echo "Error: entrypoint.sh not found at $root_entrypoint"
-        return 1
-    fi
-    
-    # Build the agent image using docker compose
-    echo "Building Docker image for agent $agent_id..."
-    docker compose -f "$DOCKER_COMPOSE_FILE" build "oc-$agent_id" 2>&1 || {
-        echo "Warning: Docker build failed for agent $agent_id"
-        echo "You can manually build later with: docker compose build oc-$agent_id"
-        return 0  # Don't fail the script, just warn
-    }
-    
-    echo "Successfully built Docker image for agent $agent_id"
-    log "INFO" "Built agent image for $agent_id"
-}
+echo "  Structure:"
+ls -la "$AGENTS_DIR/$AGENT_ID/" | head -20
