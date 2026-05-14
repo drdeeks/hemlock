@@ -122,7 +122,7 @@ EOF
 
 # Ensure .secrets has proper permissions
 chmod 755 "$AGENTS_DIR/$AGENT_ID/.secrets" 2>/dev/null || true
-chmod 600 "$AGENTS_DIR/$AGENT_ID/.secrets/.README.md" 2>/dev/null || true
+chmod 644 "$AGENTS_DIR/$AGENT_ID/.secrets/.README.md" 2>/dev/null || true
 
 # Copy tools from template or create defaults
 if [[ ! -f "$AGENTS_DIR/$AGENT_ID/tools/enforce.sh" ]]; then
