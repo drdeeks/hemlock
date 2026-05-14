@@ -20,7 +20,7 @@ Hemlock is an enterprise-grade multi-agent AI orchestration framework with compl
 ┌─────────────────────────────────────────────────────────┐
 │                    OPENCLAW (Driver)                     │
 │  - Configuration: ~/.openclaw/openclaw.json (JSON5)    │
-│  - Workspace: ~/.openclaw/workspace                     │
+│  - Workspace: agents/{agent-id}/ (self-contained)                     │
 │  - Commands: onboard, pair, manage                      │
 │  - Role: Primary orchestration & agent management       │
 └─────────────────────────────────────────────────────────┘
@@ -495,3 +495,30 @@ Hemlock Core (health, runtime, scripts)
 ./runtime.sh docker-doctor                # Run doctor service
 ./runtime.sh docker-build                 # Build runtime image
 ```
+
+---
+
+## Agent Isolation
+
+Each agent is fully self-contained in `agents/{agent-id}/`:
+
+```
+agents/jack/
+├── identity.md          # Agent identity
+├── memory/              # Memory storage
+│   └── graph.json
+├── tools/               # Agent tools
+│   ├── enforce.sh
+│   ├── secret.sh
+│   └── memory-*.sh
+├── skills/              # Agent skills
+│   └── {skill-name}/SKILL.md
+├── workspace/           # Agent workspace
+├── state/               # State storage
+├── reflections/         # Reflection logs
+└── sessions/            # Session history
+```
+
+**Isolation**: Docker volumes ensure agents cannot access each other's data.
+**Portability**: Export/import entire agent directory.
+**Path Resolution**: Customizable via `HERMES_AGENTS` environment variable.
