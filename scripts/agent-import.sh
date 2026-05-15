@@ -1,15 +1,13 @@
 #!/bin/bash
 # =============================================================================
-# agent-import.sh — Import agent with workspace-template compliance
+# agent-import.sh — Universal agent importer
 #
-# Imports agent ensuring:
-# - ALL files copied (including hidden: .secrets/, .scope/, .archive/)
-# - Workspace structure matches template
-# - Every secret handled safely (tool-access only)
-# - Every directory properly permissioned
-# - Enforcement run after import
+# Accepts ANY source type:
+# - Directories (copies all files including hidden)
+# - Archives: .tar.gz, .tgz, .tar, .zip, .bz2
+# - Unknown formats (attempts auto-detection)
 #
-# Usage: ./agent-import.sh <source> <agent_id> [--volume] [--overwrite]
+# Ensures workspace-template compliance, handles all secrets safely
 # =============================================================================
 
 set -euo pipefail
@@ -17,23 +15,20 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNTIME_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 AGENTS_DIR="$RUNTIME_ROOT/agents"
-TEMPLATE_DIR="$AGENTS_DIR/workspace-template"
 
 mkdir -p "$AGENTS_DIR"
 source "$SCRIPT_DIR/helpers.sh"
 
-SOURCE="" TARGET="" MODEL_OVERRIDE="" OVERWRITE=false QUIET=false
+SOURCE="" TARGET="" OVERWRITE=false QUIET=false
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
         --source) SOURCE="$2"; shift 2 ;;
         --target) TARGET="$2"; shift 2 ;;
-        --model) MODEL_OVERRIDE="$2"; shift 2 ;;
         --overwrite|--force) OVERWRITE=true; shift ;;
-        --volume) VOLUME=true; shift ;;
         --quiet|-q) QUIET=true; shift ;;
-        -h|--help) echo "Usage: $0 <source> <agent_id> [--overwrite] [--volume]"; exit 0 ;;
+        -h|--help) echo "Usage: $0 <source> <agent_id>"; exit 0 ;;
         *) SOURCE="$1"; shift ;;
     esac
 done
@@ -41,7 +36,7 @@ done
 [[ -z "$SOURCE" || -z "$TARGET" ]] && { echo "Usage: $0 <source> <agent_id>"; exit 1; }
 validate_agent_id "$TARGET" || exit 1
 
-# Check if exists
+# Handle existing agent
 if agent_exists "$TARGET"; then
     if [[ "$OVERWRITE" == true ]]; then
         BACKUP="$RUNTIME_ROOT/backups/agents/${TARGET}-$(date +%Y%m%d-%H%M%S)"
@@ -55,30 +50,94 @@ if agent_exists "$TARGET"; then
 fi
 
 echo "Importing agent to $TARGET..."
-
-# Create target directory
 mkdir -p "$AGENTS_DIR/$TARGET"
 
-# Copy ALL files from source (including hidden)
-if [[ -d "$SOURCE" ]]; then
-    cp -ra "$SOURCE/." "$AGENTS_DIR/$TARGET/"
-elif [[ "$SOURCE" == *.tar.gz || "$SOURCE" == *.tgz ]]; then
-    tar -xzf "$SOURCE" -C "$AGENTS_DIR/$TARGET"
-elif [[ "$SOURCE" == *.tar ]]; then
-    tar -xf "$SOURCE" -C "$AGENTS_DIR/$TARGET"
+# Universal source handler
+import_source() {
+    local src="$1"
+    local dest="$2"
+    
+    # Directory - copy everything including hidden files
+    if [[ -d "$src" ]]; then
+        echo "  Source: Directory"
+        cp -ra "$src/." "$dest/"
+        return 0
+    fi
+    
+    # Archive files - detect and extract
+    if [[ -f "$src" ]]; then
+        case "$src" in
+            *.tar.gz|*.tgz)
+                echo "  Source: tar.gz archive"
+                tar -xzf "$src" -C "$dest"
+                return 0
+                ;;
+            *.tar)
+                echo "  Source: tar archive"
+                tar -xf "$src" -C "$dest"
+                return 0
+                ;;
+            *.tar.bz2|*.tbz2)
+                echo "  Source: tar.bz2 archive"
+                tar -xjf "$src" -C "$dest"
+                return 0
+                ;;
+            *.zip)
+                echo "  Source: zip archive"
+                if command -v unzip &>/dev/null; then
+                    unzip -q "$src" -d "$dest"
+                else
+                    echo "  Warning: unzip not available, trying tar"
+                    tar -xf "$src" -C "$dest" 2>/dev/null || return 1
+                fi
+                return 0
+                ;;
+            *)
+                # Unknown format - try auto-detection
+                echo "  Source: Unknown format (auto-detecting)"
+                # Try tar first
+                if tar -tf "$src" &>/dev/null; then
+                    echo "  Detected: tar archive"
+                    tar -xf "$src" -C "$dest"
+                    return 0
+                # Try zip
+                elif unzip -t "$src" &>/dev/null 2>&1; then
+                    echo "  Detected: zip archive"
+                    unzip -q "$src" -d "$dest"
+                    return 0
+                # Try direct copy as last resort
+                else
+                    echo "  Warning: Could not detect archive type, copying as-is"
+                    cp -a "$src" "$dest/"
+                    return 0
+                fi
+                ;;
+        esac
+    fi
+    
+    echo "Error: Cannot access source: $src"
+    return 1
+}
+
+# Import the source
+if import_source "$SOURCE" "$AGENTS_DIR/$TARGET"; then
+    echo "✓ Files imported"
 else
-    echo "Error: Unknown source type: $SOURCE"; exit 1
+    echo "✗ Import failed"
+    exit 1
 fi
 
-# Ensure workspace-template structure exists
+# Ensure workspace-template structure
+echo ""
+echo "Ensuring workspace structure..."
 for dir in agent memory knowledge tools workflows projects sessions archives backups cache temp .scope .secrets; do
     if [[ ! -d "$AGENTS_DIR/$TARGET/$dir" ]]; then
         mkdir -p "$AGENTS_DIR/$TARGET/$dir"
-        echo "  Created missing directory: $dir"
+        echo "  Created: $dir/"
     fi
 done
 
-# Ensure required files exist
+# Ensure required files
 for file in agent/SOUL.md agent/USER.md agent/AGENTS.md agent.json; do
     if [[ ! -f "$AGENTS_DIR/$TARGET/$file" ]]; then
         case "$file" in
@@ -104,20 +163,15 @@ EOF
                 ;;
             agent.json)
                 cat > "$AGENTS_DIR/$TARGET/$file" <<EOF
-{
-  "agent_id": "$TARGET",
-  "name": "$TARGET",
-  "type": "imported",
-  "created_at": "$(date -Iseconds)"
-}
+{"agent_id": "$TARGET", "name": "$TARGET", "type": "imported"}
 EOF
                 ;;
         esac
-        echo "  Created missing file: $file"
+        echo "  Created: $file"
     fi
 done
 
-# Ensure .secrets directory exists and is secure
+# Secure .secrets
 mkdir -p "$AGENTS_DIR/$TARGET/.secrets"
 chmod 755 "$AGENTS_DIR/$TARGET/.secrets"
 
@@ -129,24 +183,20 @@ for tool in enforce.sh secret.sh memory-promote.sh memory-log.sh; do
     fi
 done
 
-# Set proper permissions (NEVER 700 on workspace)
+# Set permissions (NEVER 700)
 find "$AGENTS_DIR/$TARGET" -type d -exec chmod 755 {} \; 2>/dev/null || true
 find "$AGENTS_DIR/$TARGET" -type f -exec chmod 644 {} \; 2>/dev/null || true
-chmod 755 "$AGENTS_DIR/$TARGET/.secrets" 2>/dev/null || true
 
 # Run enforcement
 if [[ -f "$AGENTS_DIR/$TARGET/tools/enforce.sh" ]]; then
+    echo ""
     echo "Running workspace enforcement..."
     bash "$AGENTS_DIR/$TARGET/tools/enforce.sh" "$AGENTS_DIR/$TARGET" 2>/dev/null || true
 fi
 
-# Verify structure
 echo ""
 echo "✓ Agent $TARGET imported successfully"
 echo "  Location: $AGENTS_DIR/$TARGET"
 echo ""
-echo "  Structure:"
-ls -la "$AGENTS_DIR/$TARGET/" | grep -E "^d" | awk '{print "  " $9}'
-echo ""
-echo "  Hidden directories:"
-ls -la "$AGENTS_DIR/$TARGET/" | grep "^\." | awk '{print "  " $9}'
+echo "Structure:"
+ls -la "$AGENTS_DIR/$TARGET/" | grep "^d" | awk '{print "  " $9}'
