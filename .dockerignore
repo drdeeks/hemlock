@@ -183,3 +183,8 @@ development.env
 !docker-compose.yml
 !Dockerfile
 !scripts/
+
+# Exclude node_modules with symlinks (not portable)
+docker/openclaw-runtime/lib/node_modules/
+docker/openclaw-runtime/node_modules/
+**/node_modules/
